@@ -1,0 +1,12 @@
+version: v2
+modules:
+  - path: testdata/proto
+# google.api.http, for the REST rules of the fixture service.
+deps:
+  - buf.build/googleapis/googleapis
+lint:
+  use:
+    - STANDARD
+breaking:
+  use:
+    - FILE

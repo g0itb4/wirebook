@@ -1,0 +1,22 @@
+{
+  "name": "wirebook",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "//trustedDependencies": "packages permitted to run install scripts (native builds, binary downloads).",
+  "trustedDependencies": [
+    "@bufbuild/buf"
+  ],
+  "packageManager": "bun@1.3.14",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@bufbuild/buf": "^1.73.0",
+    "@playwright/test": "^1.63.0",
+    "@types/bun": "^1.4.2",
+    "fake-indexeddb": "^6.2.5",
+    "prettier": "^3",
+    "typescript": "^7.0.2"
+  }
+}

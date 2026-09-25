@@ -1,0 +1,24 @@
+# Markdown is excluded on purpose: the READMEs are hand-wrapped, and prettier
+# would reflow them and re-pad every table.
+*.md
+
+# Generated or built.
+web/src/gen/
+internal/site/dist/
+internal/testserver/gen/
+target/
+node_modules/
+coverage/
+web/test-results/
+web/playwright-report/
+
+# Fixtures: not source, and reformatting them only makes diffs.
+testdata/
+
+# Not prettier's to format.
+*.go
+*.rs
+*.proto
+*.toml
+bun.lock
+Cargo.lock
