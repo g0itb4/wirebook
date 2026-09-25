@@ -1,0 +1,21 @@
+// proto2 fixture: required fields, defaults, a closed enum, a group-free
+// message with unpacked repeated numbers.
+syntax = "proto2";
+
+package fixture.legacy.v1;
+
+// Kind of an order. Closed, as every proto2 enum is.
+enum OrderKind {
+  ORDER_KIND_UNSPECIFIED = 0;
+  ORDER_KIND_RUSH = 1;
+}
+
+// An order, in the old syntax.
+message Order {
+  // Must be sent. The fixture needs a required field; the rule forbids one.
+  // buf:lint:ignore FIELD_NOT_REQUIRED
+  required string id = 1;
+  optional int32 quantity = 2 [default = 1];
+  optional OrderKind kind = 3;
+  repeated int32 line_numbers = 4;
+}

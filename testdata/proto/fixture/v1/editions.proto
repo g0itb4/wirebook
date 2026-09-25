@@ -1,0 +1,120 @@
+// Edition 2024 fixture: every field shape the codec has to get right.
+edition = "2024";
+
+package fixture.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/any.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// Colour of a widget. Open: an unknown number survives a round trip.
+enum Colour {
+  COLOUR_UNSPECIFIED = 0;
+  COLOUR_RED = 1;
+  COLOUR_GREEN = 2;
+}
+
+// Size of a widget. Closed: an unknown number is an unknown field.
+enum Size {
+  option features.enum_type = CLOSED;
+
+  SIZE_UNSPECIFIED = 0;
+  SIZE_SMALL = 1;
+  SIZE_LARGE = 2;
+}
+
+// A widget, with one field of every kind.
+message Widget {
+  // A part of a widget.
+  message Part {
+    string name = 1;
+    int32 count = 2;
+  }
+
+  // Explicit presence, the edition default: "" is distinct from unset.
+  string id = 1;
+  // Implicit presence, as in proto3: the zero value is not sent.
+  int32 quantity = 2 [features.field_presence = IMPLICIT];
+  // 64-bit integers are strings in JSON.
+  int64 serial = 3;
+  uint64 weight_grams = 4;
+  double ratio = 5;
+  bool active = 6;
+  // Base64 in JSON.
+  bytes payload = 7;
+  Colour colour = 8;
+  Size size = 9;
+  repeated string tags = 10;
+  // Expanded, not packed, on the wire.
+  repeated int32 scores = 11 [features.repeated_field_encoding = EXPANDED];
+  map<string, int32> stock = 12;
+  map<int64, Part> parts_by_serial = 13;
+  Part main_part = 14;
+  // Group encoding on the wire.
+  Part delimited_part = 15 [features.message_encoding = DELIMITED];
+  google.protobuf.Timestamp create_time = 16;
+  google.protobuf.Duration shelf_life = 17;
+  google.protobuf.Any detail = 18;
+
+  oneof source {
+    string factory = 19;
+    Part salvaged_from = 20;
+  }
+}
+
+// What a login sends. The password is marked as sensitive, so the console
+// keeps it out of its history.
+message Login {
+  string username = 1;
+  string password = 2 [debug_redact = true];
+  Login previous = 3;
+  repeated Login others = 4;
+  map<string, Login> by_device = 5;
+  google.protobuf.Any proof = 6;
+  google.protobuf.Timestamp login_time = 7;
+}
+
+message GetWidgetRequest {
+  string id = 1;
+}
+
+message GetWidgetResponse {
+  Widget widget = 1;
+}
+
+message CreateWidgetRequest {
+  Widget widget = 1;
+}
+
+message CreateWidgetResponse {
+  Widget widget = 1;
+}
+
+message WatchWidgetsRequest {
+  Colour colour = 1;
+}
+
+message WatchWidgetsResponse {
+  Widget widget = 1;
+}
+
+// Widgets, over Connect and over REST.
+service WidgetService {
+  // One widget by id. Has no side effects, so Connect allows GET.
+  rpc GetWidget(GetWidgetRequest) returns (GetWidgetResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/v1/widgets/{id}"};
+  }
+
+  // Store a widget.
+  rpc CreateWidget(CreateWidgetRequest) returns (CreateWidgetResponse) {
+    option (google.api.http) = {
+      post: "/v1/widgets"
+      body: "widget"
+    };
+  }
+
+  // Every widget of one colour, as it changes.
+  rpc WatchWidgets(WatchWidgetsRequest) returns (stream WatchWidgetsResponse);
+}

@@ -1,0 +1,186 @@
+// Edition 2023 fixture: every shape of google.api.http rule, and the two
+// streaming kinds a browser cannot send.
+edition = "2023";
+
+package fixture.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+// A book on a shelf. This comment is wrapped by hand, as comments in proto
+// files are, and the page joins the lines of a paragraph again.
+//
+// Its name has two parts:
+//   - the shelf
+//   - the book
+// 1. A numbered line keeps its place.
+// And running text after a block starts on a line of its own, then
+// goes on.
+message Book {
+  // Resource name: shelves/{shelf}/books/{book}.
+  string name = 1;
+  string title = 2;
+  Author author = 3;
+  repeated string genres = 4;
+  int32 pages = 5;
+  google.protobuf.Timestamp publish_time = 6;
+  map<string, string> labels = 7;
+}
+
+// Who wrote a book.
+message Author {
+  string family_name = 1;
+  string given_name = 2;
+}
+
+message GetBookRequest {
+  string name = 1;
+}
+
+message GetBookResponse {
+  Book book = 1;
+}
+
+message ListBooksRequest {
+  // Narrows the list.
+  message Filter {
+    string family_name = 1;
+    int32 min_pages = 2;
+  }
+
+  string parent = 1;
+  int32 page_size = 2;
+  string page_token = 3;
+  Filter filter = 4;
+  repeated string genres = 5;
+  google.protobuf.Timestamp published_after = 6;
+  map<string, string> labels = 7;
+  repeated Author authors = 8;
+}
+
+message ListBooksResponse {
+  repeated Book books = 1;
+  string next_page_token = 2;
+}
+
+message UpdateBookRequest {
+  Book book = 1;
+  google.protobuf.FieldMask update_mask = 2;
+}
+
+message UpdateBookResponse {
+  Book book = 1;
+}
+
+message DeleteBookRequest {
+  string name = 1;
+  bool force = 2;
+}
+
+message DeleteBookResponse {}
+
+message ArchiveBookRequest {
+  string name = 1;
+  string reason = 2;
+}
+
+message ArchiveBookResponse {
+  Book book = 1;
+}
+
+message ReplaceBookRequest {
+  string shelf = 1;
+  int64 number = 2;
+  Book book = 3;
+}
+
+message ReplaceBookResponse {
+  Book book = 1;
+}
+
+message CheckBookRequest {
+  string name = 1;
+}
+
+message CheckBookResponse {}
+
+message UploadPagesRequest {
+  bytes page = 1;
+}
+
+message UploadPagesResponse {
+  int32 pages = 1;
+}
+
+message DiscussBookRequest {
+  string text = 1;
+}
+
+message DiscussBookResponse {
+  string text = 1;
+}
+
+// Books, mapped to REST in every way the annotation allows.
+service LibraryService {
+  // One book. Two bindings: by resource name, or by a bare id.
+  rpc GetBook(GetBookRequest) returns (GetBookResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {
+      get: "/v1/{name=shelves/*/books/*}"
+      additional_bindings: {get: "/v1/books/{name}"}
+    };
+  }
+
+  // Books on a shelf. Everything outside the path becomes a query parameter.
+  rpc ListBooks(ListBooksRequest) returns (ListBooksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+    option (google.api.http) = {get: "/v1/{parent=shelves/*}/books"};
+  }
+
+  // Change a book. The path variable is a nested field; the body is one field.
+  rpc UpdateBook(UpdateBookRequest) returns (UpdateBookResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (google.api.http) = {
+      patch: "/v1/{book.name=shelves/*/books/*}"
+      body: "book"
+    };
+  }
+
+  // Remove a book.
+  rpc DeleteBook(DeleteBookRequest) returns (DeleteBookResponse) {
+    option (google.api.http) = {delete: "/v1/{name=shelves/*/books/*}"};
+  }
+
+  // A custom verb after a colon; the body is every field left.
+  rpc ArchiveBook(ArchiveBookRequest) returns (ArchiveBookResponse) {
+    option (google.api.http) = {
+      post: "/v1/{name=shelves/*/books/*}:archive"
+      body: "*"
+    };
+  }
+
+  // Two plain path variables, one of them a 64-bit number.
+  rpc ReplaceBook(ReplaceBookRequest) returns (ReplaceBookResponse) {
+    option (google.api.http) = {
+      put: "/v1/shelves/{shelf}/books/{number}"
+      body: "book"
+    };
+  }
+
+  // A custom HTTP method.
+  rpc CheckBook(CheckBookRequest) returns (CheckBookResponse) {
+    option (google.api.http) = {
+      custom: {
+        kind: "HEAD"
+        path: "/v1/{name=**}"
+      }
+    };
+  }
+
+  // Client streaming: documented, but a browser cannot send it.
+  rpc UploadPages(stream UploadPagesRequest) returns (UploadPagesResponse);
+
+  // Bidirectional streaming: documented, but a browser cannot send it.
+  rpc DiscussBook(stream DiscussBookRequest) returns (stream DiscussBookResponse);
+}
