@@ -1,0 +1,17 @@
+[package]
+name = "wirebook-core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+base64 = "0.22"
+buffa = "0.9.2"
+buffa-descriptor = { version = "0.9.2", features = ["reflect", "json"] }
+serde = { version = "1", features = ["derive"] }
+# preserve_order: a template and a response keep the order of the declaration.
+serde_json = { version = "1", features = ["preserve_order"] }
