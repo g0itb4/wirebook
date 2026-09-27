@@ -1,0 +1,12 @@
+# The unit tier of the web app: the logic in web/src/lib, against the real
+# core. The pages are tested in a browser, by `just e2e`.
+[test]
+root = "web/src/lib"
+coverage = true
+coverageSkipTestFiles = true
+# The glue wasm-bindgen writes, and the helpers of the tests themselves.
+coveragePathIgnorePatterns = ["web/src/gen/**", "web/src/lib/testing.ts"]
+# Per file, and the floors only go up. Every line runs. Of the functions,
+# bun counts one in store.ts that its report does not name and no test can
+# reach; 0.96 is that file, as measured.
+coverageThreshold = { lines = 1.0, functions = 0.96 }

@@ -1,0 +1,17 @@
+[package]
+name = "wirebook-core-wasm"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wirebook-core = { path = "../core" }
+# The wasm-bindgen CLI must be this exact version; `just wasm` checks.
+wasm-bindgen = "=0.2.127"
