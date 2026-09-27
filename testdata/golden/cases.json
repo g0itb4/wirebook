@@ -1,0 +1,505 @@
+[
+  {
+    "name": "edition 2024: every field kind",
+    "message": "fixture.v1.Widget",
+    "input": {
+      "id": "",
+      "quantity": 7,
+      "serial": "9007199254740993",
+      "weightGrams": "18446744073709551615",
+      "ratio": 0.5,
+      "active": true,
+      "payload": "AAEC/w==",
+      "colour": "COLOUR_GREEN",
+      "size": "SIZE_LARGE",
+      "tags": [
+        "a",
+        "b"
+      ],
+      "scores": [
+        1,
+        2,
+        3
+      ],
+      "stock": {
+        "right": 2,
+        "left": 1,
+        "middle": 0
+      },
+      "partsBySerial": {
+        "42": {
+          "name": "bolt",
+          "count": 4
+        },
+        "-7": {
+          "name": "nut"
+        }
+      },
+      "mainPart": {
+        "name": "frame",
+        "count": 1
+      },
+      "delimitedPart": {
+        "name": "lid",
+        "count": 2
+      },
+      "createTime": "2026-10-02T03:04:05.006Z",
+      "shelfLife": "3600.500s",
+      "detail": {
+        "@type": "type.googleapis.com/fixture.v1.GetWidgetRequest",
+        "id": "inner"
+      },
+      "salvagedFrom": {
+        "name": "old",
+        "count": 9
+      }
+    },
+    "wire": "0a00100718818080808080801020ffffffffffffffffff0129000000000000e03f30013a04000102ff4002480252016152016258015802580362080a046c6566741001620a0a066d6964646c65100062090a05726967687410026a1208f9ffffffffffffffff0112050a036e75746a0c082a12080a04626f6c74100472090a056672616d6510017b0a036c696410027c82010b08a5befcd50610809bee028a010908901c1080cab5ee0192013a0a2f747970652e676f6f676c65617069732e636f6d2f666978747572652e76312e4765745769646765745265717565737412070a05696e6e6572a201070a036f6c641009",
+    "json": {
+      "id": "",
+      "quantity": 7,
+      "serial": "9007199254740993",
+      "weightGrams": "18446744073709551615",
+      "ratio": 0.5,
+      "active": true,
+      "payload": "AAEC/w==",
+      "colour": "COLOUR_GREEN",
+      "size": "SIZE_LARGE",
+      "tags": [
+        "a",
+        "b"
+      ],
+      "scores": [
+        1,
+        2,
+        3
+      ],
+      "stock": {
+        "left": 1,
+        "middle": 0,
+        "right": 2
+      },
+      "partsBySerial": {
+        "-7": {
+          "name": "nut"
+        },
+        "42": {
+          "name": "bolt",
+          "count": 4
+        }
+      },
+      "mainPart": {
+        "name": "frame",
+        "count": 1
+      },
+      "delimitedPart": {
+        "name": "lid",
+        "count": 2
+      },
+      "createTime": "2026-10-02T03:04:05.006Z",
+      "shelfLife": "3600.500s",
+      "detail": {
+        "@type": "type.googleapis.com/fixture.v1.GetWidgetRequest",
+        "id": "inner"
+      },
+      "salvagedFrom": {
+        "name": "old",
+        "count": 9
+      }
+    }
+  },
+  {
+    "name": "edition 2024: explicit presence keeps a zero, implicit drops it",
+    "message": "fixture.v1.Widget",
+    "input": {
+      "id": "",
+      "quantity": 0,
+      "serial": "0",
+      "active": false,
+      "ratio": 0,
+      "colour": "COLOUR_UNSPECIFIED",
+      "factory": ""
+    },
+    "wire": "0a001800290000000000000000300040009a0100",
+    "json": {
+      "id": "",
+      "serial": "0",
+      "ratio": 0,
+      "active": false,
+      "colour": "COLOUR_UNSPECIFIED",
+      "factory": ""
+    }
+  },
+  {
+    "name": "edition 2024: an open enum keeps a number it does not know",
+    "message": "fixture.v1.Widget",
+    "input": {
+      "colour": 99
+    },
+    "wire": "4063",
+    "json": {
+      "colour": 99
+    }
+  },
+  {
+    "name": "edition 2024: empty",
+    "message": "fixture.v1.Widget",
+    "input": {},
+    "wire": "",
+    "json": {}
+  },
+  {
+    "name": "edition 2024: an Any inside an Any",
+    "message": "fixture.v1.Widget",
+    "input": {
+      "detail": {
+        "@type": "type.googleapis.com/fixture.v1.Widget",
+        "id": "outer",
+        "detail": {
+          "@type": "type.googleapis.com/google.protobuf.Duration",
+          "value": "1.5s"
+        }
+      }
+    },
+    "wire": "92016b0a25747970652e676f6f676c65617069732e636f6d2f666978747572652e76312e57696467657412420a056f757465729201380a2c747970652e676f6f676c65617069732e636f6d2f676f6f676c652e70726f746f6275662e4475726174696f6e120808011080cab5ee01",
+    "json": {
+      "detail": {
+        "@type": "type.googleapis.com/fixture.v1.Widget",
+        "id": "outer",
+        "detail": {
+          "@type": "type.googleapis.com/google.protobuf.Duration",
+          "value": "1.500s"
+        }
+      }
+    }
+  },
+  {
+    "name": "edition 2023: a book",
+    "message": "fixture.v1.Book",
+    "input": {
+      "name": "shelves/1/books/2",
+      "title": "The Dispossessed — «Les Dépossédés» 所有せざる人々",
+      "author": {
+        "familyName": "Le Guin",
+        "givenName": "Ursula"
+      },
+      "genres": [
+        "sf"
+      ],
+      "pages": 341,
+      "publishTime": "1974-05-01T00:00:00Z",
+      "labels": {
+        "b": "2",
+        "a": "1"
+      }
+    },
+    "wire": "0a117368656c7665732f312f626f6f6b732f32124054686520446973706f7373657373656420e2809420c2ab4c65732044c3a9706f7373c3a964c3a973c2bb20e68980e69c89e3819be38196e3828be4babae380851a110a074c65204775696e1206557273756c612202736628d50232050880a791413a060a01611201313a060a0162120132",
+    "json": {
+      "name": "shelves/1/books/2",
+      "title": "The Dispossessed — «Les Dépossédés» 所有せざる人々",
+      "author": {
+        "familyName": "Le Guin",
+        "givenName": "Ursula"
+      },
+      "genres": [
+        "sf"
+      ],
+      "pages": 341,
+      "publishTime": "1974-05-01T00:00:00Z",
+      "labels": {
+        "a": "1",
+        "b": "2"
+      }
+    }
+  },
+  {
+    "name": "edition 2023: an update with a field mask",
+    "message": "fixture.v1.UpdateBookRequest",
+    "input": {
+      "book": {
+        "name": "shelves/1/books/2",
+        "pages": 0
+      },
+      "updateMask": "title,author.familyName"
+    },
+    "wire": "0a150a117368656c7665732f312f626f6f6b732f322800121b0a057469746c650a12617574686f722e66616d696c795f6e616d65",
+    "json": {
+      "book": {
+        "name": "shelves/1/books/2",
+        "pages": 0
+      },
+      "updateMask": "title,author.familyName"
+    }
+  },
+  {
+    "name": "proto3: every scalar at an extreme",
+    "message": "fixture.legacy.v1.Scalars",
+    "input": {
+      "doubleValue": -1.7976931348623157e308,
+      "floatValue": 1.5,
+      "int32Value": -2147483648,
+      "int64Value": "-9223372036854775808",
+      "uint32Value": 4294967295,
+      "uint64Value": "18446744073709551615",
+      "sint32Value": -2147483648,
+      "sint64Value": "-9223372036854775808",
+      "fixed32Value": 4294967295,
+      "fixed64Value": "18446744073709551615",
+      "sfixed32Value": -1,
+      "sfixed64Value": "-1",
+      "boolValue": true,
+      "stringValue": "tab\there, quote\" and \u0000 nul",
+      "bytesValue": "/+7dzA==",
+      "optionalValue": 0,
+      "byFlag": {
+        "true": "yes",
+        "false": "no"
+      },
+      "byNumber": {
+        "3": 0.25,
+        "1": 1e30,
+        "2": 0
+      }
+    },
+    "wire": "09ffffffffffffefff150000c03f1880808080f8ffffffff01208080808080808080800128ffffffff0f30ffffffffffffffffff0138ffffffff0f40ffffffffffffffffff014dffffffff51ffffffffffffffff5dffffffff61ffffffffffffffff6801721a74616209686572652c2071756f74652220616e642000206e756c7a04ffeeddcc8001008a0106080012026e6f8a01070801120379657392010b080111ea8ca039593e294692010b080211000000000000000092010b080311000000000000d03f",
+    "json": {
+      "doubleValue": -1.7976931348623157e+308,
+      "floatValue": 1.5,
+      "int32Value": -2147483648,
+      "int64Value": "-9223372036854775808",
+      "uint32Value": 4294967295,
+      "uint64Value": "18446744073709551615",
+      "sint32Value": -2147483648,
+      "sint64Value": "-9223372036854775808",
+      "fixed32Value": 4294967295,
+      "fixed64Value": "18446744073709551615",
+      "sfixed32Value": -1,
+      "sfixed64Value": "-1",
+      "boolValue": true,
+      "stringValue": "tab\there, quote\" and \u0000 nul",
+      "bytesValue": "/+7dzA==",
+      "optionalValue": 0,
+      "byFlag": {
+        "false": "no",
+        "true": "yes"
+      },
+      "byNumber": {
+        "1": 1e+30,
+        "2": 0,
+        "3": 0.25
+      }
+    }
+  },
+  {
+    "name": "proto3: floats that are infinite",
+    "message": "fixture.legacy.v1.Scalars",
+    "input": {
+      "doubleValue": "Infinity",
+      "floatValue": "-Infinity"
+    },
+    "wire": "09000000000000f07f15000080ff",
+    "json": {
+      "doubleValue": "Infinity",
+      "floatValue": "-Infinity"
+    }
+  },
+  {
+    "name": "proto3: a zero is not sent, an optional zero is",
+    "message": "fixture.legacy.v1.Scalars",
+    "input": {
+      "int32Value": 0,
+      "stringValue": "",
+      "optionalValue": 0
+    },
+    "wire": "800100",
+    "json": {
+      "optionalValue": 0
+    }
+  },
+  {
+    "name": "proto3: every well-known type",
+    "message": "fixture.legacy.v1.WellKnown",
+    "input": {
+      "timestamp": "0001-01-01T00:00:00Z",
+      "duration": "-315576000000.999999999s",
+      "fieldMask": "userName,address.postCode",
+      "structValue": {
+        "text": "a",
+        "number": 1.5,
+        "flag": true,
+        "nothing": null,
+        "list": [
+          1,
+          "two",
+          {
+            "three": 3
+          }
+        ],
+        "object": {
+          "k": "v"
+        }
+      },
+      "value": [
+        1,
+        null,
+        "x"
+      ],
+      "listValue": [
+        true,
+        2,
+        {
+          "a": null
+        }
+      ],
+      "empty": {},
+      "any": {
+        "@type": "type.googleapis.com/google.protobuf.Timestamp",
+        "value": "2026-10-02T00:00:00.123456789Z"
+      },
+      "doubleWrapper": 0,
+      "floatWrapper": 2.5,
+      "int32Wrapper": -5,
+      "uint32Wrapper": 5,
+      "int64Wrapper": "-5",
+      "uint64Wrapper": "5",
+      "boolWrapper": false,
+      "stringWrapper": "",
+      "bytesWrapper": "AA=="
+    },
+    "wire": "0a0b088092b8c398feffffff0112160880c4d1b1e8f6ffffff011081ec94a3fcffffffff011a1e0a09757365725f6e616d650a11616464726573732e706f73745f636f6465228b010a0a0a04666c6167120220010a340a046c697374122c322a0a0911000000000000f03f0a051a0374776f0a162a140a120a05746872656512091100000000000008400a0d0a076e6f7468696e67120208000a130a066e756d626572120911000000000000f83f0a160a066f626a656374120c2a0a0a080a016b12031a01760a0b0a047465787412031a01612a1632140a0911000000000000f03f0a0208000a031a0178321c0a0220010a091100000000000000400a0b2a090a070a0161120208003a00423c0a2d747970652e676f6f676c65617069732e636f6d2f676f6f676c652e70726f746f6275662e54696d657374616d70120b0880e8fbd50610959aef3a4a0052050d000020405a0b08fbffffffffffffffff01620208056a0b08fbffffffffffffffff01720208057a008201008a01030a0100",
+    "json": {
+      "timestamp": "0001-01-01T00:00:00Z",
+      "duration": "-315576000000.999999999s",
+      "fieldMask": "userName,address.postCode",
+      "structValue": {
+        "flag": true,
+        "list": [
+          1,
+          "two",
+          {
+            "three": 3
+          }
+        ],
+        "nothing": null,
+        "number": 1.5,
+        "object": {
+          "k": "v"
+        },
+        "text": "a"
+      },
+      "value": [
+        1,
+        null,
+        "x"
+      ],
+      "listValue": [
+        true,
+        2,
+        {
+          "a": null
+        }
+      ],
+      "empty": {},
+      "any": {
+        "@type": "type.googleapis.com/google.protobuf.Timestamp",
+        "value": "2026-10-02T00:00:00.123456789Z"
+      },
+      "doubleWrapper": 0,
+      "floatWrapper": 2.5,
+      "int32Wrapper": -5,
+      "uint32Wrapper": 5,
+      "int64Wrapper": "-5",
+      "uint64Wrapper": "5",
+      "boolWrapper": false,
+      "stringWrapper": "",
+      "bytesWrapper": "AA=="
+    }
+  },
+  {
+    "name": "proto3: a null value is a value",
+    "message": "fixture.legacy.v1.WellKnown",
+    "input": {
+      "value": null,
+      "timestamp": null
+    },
+    "wire": "2a020800",
+    "json": {
+      "value": null
+    }
+  },
+  {
+    "name": "proto3: a message inside itself",
+    "message": "fixture.legacy.v1.Tree",
+    "input": {
+      "label": "root",
+      "children": [
+        {
+          "label": "a",
+          "children": [
+            {
+              "label": "a1"
+            }
+          ]
+        },
+        {
+          "label": "b"
+        }
+      ],
+      "parent": {}
+    },
+    "wire": "0a04726f6f7412090a016112040a02613112030a01621a00",
+    "json": {
+      "label": "root",
+      "children": [
+        {
+          "label": "a",
+          "children": [
+            {
+              "label": "a1"
+            }
+          ]
+        },
+        {
+          "label": "b"
+        }
+      ],
+      "parent": {}
+    }
+  },
+  {
+    "name": "proto2: required, default and unpacked",
+    "message": "fixture.legacy.v1.Order",
+    "input": {
+      "id": "o-1",
+      "kind": "ORDER_KIND_RUSH",
+      "lineNumbers": [
+        3,
+        1,
+        2
+      ]
+    },
+    "wire": "0a036f2d311801200320012002",
+    "json": {
+      "id": "o-1",
+      "kind": "ORDER_KIND_RUSH",
+      "lineNumbers": [
+        3,
+        1,
+        2
+      ]
+    }
+  },
+  {
+    "name": "proto2: a value equal to the default is still sent",
+    "message": "fixture.legacy.v1.Order",
+    "input": {
+      "id": "",
+      "quantity": 1
+    },
+    "wire": "0a001001",
+    "json": {
+      "id": "",
+      "quantity": 1
+    }
+  }
+]

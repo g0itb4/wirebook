@@ -1,0 +1,148 @@
+[
+  {
+    "name": "edition 2024: every field kind",
+    "message": "fixture.v1.Widget",
+    "json": {
+      "id": "",
+      "quantity": 7,
+      "serial": "9007199254740993",
+      "weightGrams": "18446744073709551615",
+      "ratio": 0.5,
+      "active": true,
+      "payload": "AAEC/w==",
+      "colour": "COLOUR_GREEN",
+      "size": "SIZE_LARGE",
+      "tags": ["a", "b"],
+      "scores": [1, 2, 3],
+      "stock": {"right": 2, "left": 1, "middle": 0},
+      "partsBySerial": {"42": {"name": "bolt", "count": 4}, "-7": {"name": "nut"}},
+      "mainPart": {"name": "frame", "count": 1},
+      "delimitedPart": {"name": "lid", "count": 2},
+      "createTime": "2026-10-02T03:04:05.006Z",
+      "shelfLife": "3600.500s",
+      "detail": {"@type": "type.googleapis.com/fixture.v1.GetWidgetRequest", "id": "inner"},
+      "salvagedFrom": {"name": "old", "count": 9}
+    }
+  },
+  {
+    "name": "edition 2024: explicit presence keeps a zero, implicit drops it",
+    "message": "fixture.v1.Widget",
+    "json": {"id": "", "quantity": 0, "serial": "0", "active": false, "ratio": 0, "colour": "COLOUR_UNSPECIFIED", "factory": ""}
+  },
+  {
+    "name": "edition 2024: an open enum keeps a number it does not know",
+    "message": "fixture.v1.Widget",
+    "json": {"colour": 99}
+  },
+  {
+    "name": "edition 2024: empty",
+    "message": "fixture.v1.Widget",
+    "json": {}
+  },
+  {
+    "name": "edition 2024: an Any inside an Any",
+    "message": "fixture.v1.Widget",
+    "json": {
+      "detail": {
+        "@type": "type.googleapis.com/fixture.v1.Widget",
+        "id": "outer",
+        "detail": {"@type": "type.googleapis.com/google.protobuf.Duration", "value": "1.5s"}
+      }
+    }
+  },
+  {
+    "name": "edition 2023: a book",
+    "message": "fixture.v1.Book",
+    "json": {
+      "name": "shelves/1/books/2",
+      "title": "The Dispossessed — «Les Dépossédés» 所有せざる人々",
+      "author": {"familyName": "Le Guin", "givenName": "Ursula"},
+      "genres": ["sf"],
+      "pages": 341,
+      "publishTime": "1974-05-01T00:00:00Z",
+      "labels": {"b": "2", "a": "1"}
+    }
+  },
+  {
+    "name": "edition 2023: an update with a field mask",
+    "message": "fixture.v1.UpdateBookRequest",
+    "json": {"book": {"name": "shelves/1/books/2", "pages": 0}, "updateMask": "title,author.familyName"}
+  },
+  {
+    "name": "proto3: every scalar at an extreme",
+    "message": "fixture.legacy.v1.Scalars",
+    "json": {
+      "doubleValue": -1.7976931348623157e308,
+      "floatValue": 1.5,
+      "int32Value": -2147483648,
+      "int64Value": "-9223372036854775808",
+      "uint32Value": 4294967295,
+      "uint64Value": "18446744073709551615",
+      "sint32Value": -2147483648,
+      "sint64Value": "-9223372036854775808",
+      "fixed32Value": 4294967295,
+      "fixed64Value": "18446744073709551615",
+      "sfixed32Value": -1,
+      "sfixed64Value": "-1",
+      "boolValue": true,
+      "stringValue": "tab\there, quote\" and \u0000 nul",
+      "bytesValue": "/+7dzA==",
+      "optionalValue": 0,
+      "byFlag": {"true": "yes", "false": "no"},
+      "byNumber": {"3": 0.25, "1": 1e30, "2": 0}
+    }
+  },
+  {
+    "name": "proto3: floats that are infinite",
+    "message": "fixture.legacy.v1.Scalars",
+    "json": {"doubleValue": "Infinity", "floatValue": "-Infinity"}
+  },
+  {
+    "name": "proto3: a zero is not sent, an optional zero is",
+    "message": "fixture.legacy.v1.Scalars",
+    "json": {"int32Value": 0, "stringValue": "", "optionalValue": 0}
+  },
+  {
+    "name": "proto3: every well-known type",
+    "message": "fixture.legacy.v1.WellKnown",
+    "json": {
+      "timestamp": "0001-01-01T00:00:00Z",
+      "duration": "-315576000000.999999999s",
+      "fieldMask": "userName,address.postCode",
+      "structValue": {"text": "a", "number": 1.5, "flag": true, "nothing": null, "list": [1, "two", {"three": 3}], "object": {"k": "v"}},
+      "value": [1, null, "x"],
+      "listValue": [true, 2, {"a": null}],
+      "empty": {},
+      "any": {"@type": "type.googleapis.com/google.protobuf.Timestamp", "value": "2026-10-02T00:00:00.123456789Z"},
+      "doubleWrapper": 0,
+      "floatWrapper": 2.5,
+      "int32Wrapper": -5,
+      "uint32Wrapper": 5,
+      "int64Wrapper": "-5",
+      "uint64Wrapper": "5",
+      "boolWrapper": false,
+      "stringWrapper": "",
+      "bytesWrapper": "AA=="
+    }
+  },
+  {
+    "name": "proto3: a null value is a value",
+    "message": "fixture.legacy.v1.WellKnown",
+    "json": {"value": null, "timestamp": null}
+  },
+  {
+    "name": "proto3: a message inside itself",
+    "message": "fixture.legacy.v1.Tree",
+    "json": {"label": "root", "children": [{"label": "a", "children": [{"label": "a1"}]}, {"label": "b"}], "parent": {}}
+  },
+  {
+    "name": "proto2: required, default and unpacked",
+    "message": "fixture.legacy.v1.Order",
+    "json": {"id": "o-1", "kind": "ORDER_KIND_RUSH", "lineNumbers": [3, 1, 2]}
+  },
+  {
+    "name": "proto2: a value equal to the default is still sent",
+    "message": "fixture.legacy.v1.Order",
+    "json": {"id": "", "quantity": 1}
+  }
+]

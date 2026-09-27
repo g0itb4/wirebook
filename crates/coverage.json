@@ -1,0 +1,6 @@
+{
+  "exclude": [],
+  "floors": {
+    "crates/core/src": 100
+  }
+}
