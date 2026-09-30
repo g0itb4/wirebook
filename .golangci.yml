@@ -1,0 +1,150 @@
+# golangci-lint v2. Run through `just lint-go` and `just fmt`; the prek hooks
+# call the same recipes.
+version: "2"
+
+run:
+  tests: true
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/g0itb4/wirebook
+  exclusions:
+    generated: strict
+    paths:
+      - ^internal/testserver/gen/
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose
+    - copyloopvar
+    - depguard
+    - errorlint
+    - gocritic
+    - gosec
+    - misspell
+    - nolintlint
+    - revive
+    - unconvert
+    - unparam
+  settings:
+    errcheck:
+      # Writing a report line to a terminal or a buffer; there is nothing
+      # useful to do when it fails.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    govet:
+      enable-all: true
+      disable:
+        # Reordering struct fields for a few bytes costs more in readability
+        # than it saves.
+        - fieldalignment
+    nolintlint:
+      # A suppression names the linter and says why.
+      require-explanation: true
+      require-specific: true
+    misspell:
+      locale: UK
+      # Protocol and library spellings that are not ours to change.
+      ignore-rules:
+        - color
+        - center
+        - serialize
+        - initialize
+        - normalize
+        - authorization
+        - unauthorized
+    revive:
+      rules:
+        - name: exported
+          arguments: [disableStutteringCheck]
+        - name: package-comments
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: unexported-return
+        - name: var-declaration
+    depguard:
+      # What each package may reach. These rules are the table in
+      # CONTRIBUTING.md, as lint.
+      rules:
+        pure:
+          files:
+            - "**/internal/config/**"
+            - "**/internal/image/**"
+            - "**/internal/site/**"
+            - "!**/*_test.go"
+          deny:
+            - pkg: net/http
+              desc: config, image and site make a site from bytes; serving is internal/serve
+            - pkg: os/exec
+              desc: running buf is internal/bufcli
+            - pkg: github.com/g0itb4/wirebook/internal/serve
+              desc: the dependency arrow points from the commands inwards
+            - pkg: github.com/g0itb4/wirebook/internal/cli
+              desc: the dependency arrow points from the commands inwards
+        serve:
+          files:
+            - "**/internal/serve/**"
+            - "!**/*_test.go"
+          deny:
+            - pkg: os/exec
+              desc: the server is handed a build function; it runs nothing itself
+            - pkg: github.com/g0itb4/wirebook/internal/cli
+              desc: the dependency arrow points from the commands inwards
+            - pkg: github.com/g0itb4/wirebook/internal/site
+              desc: the server serves whatever files it is handed
+        shipped:
+          files:
+            - "**/internal/cli/**"
+            - "**/internal/plugin/**"
+            - "**/internal/serve/**"
+            - "**/internal/site/**"
+            - "**/internal/image/**"
+            - "**/internal/config/**"
+            - "**/internal/bufcli/**"
+            - "**/cmd/wirebook/**"
+            - "**/cmd/protoc-gen-wirebook/**"
+          deny:
+            - pkg: github.com/g0itb4/wirebook/internal/testserver
+              desc: the fixture API is for tests; nothing that ships may import it
+            - pkg: connectrpc.com
+              desc: wirebook speaks Connect from the browser, in the Rust core; the Go side only moves bytes
+  exclusions:
+    generated: strict
+    paths:
+      - ^internal/testserver/gen/
+    rules:
+      # Tests may shadow err, skip error checks on cleanup, and open the
+      # files they made.
+      - path: _test\.go
+        linters:
+          - gosec
+          - unparam
+          - bodyclose
+          - errcheck
+      # Command-line tools open the paths their flags name. That is their job.
+      - path: ^cmd/
+        linters: [gosec]
+        text: "G304"
+      - path: _test\.go
+        linters: [govet]
+        text: "shadow:"
+      - linters: [govet]
+        text: 'shadow: declaration of "err"'
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

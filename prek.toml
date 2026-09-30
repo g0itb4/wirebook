@@ -1,0 +1,179 @@
+# Git hooks, run by prek (https://prek.j178.dev). Install them with
+# `just hooks`; run them all with `just check`.
+#
+# Every hook calls a `just` recipe or a builtin, so the hooks, `just` and CI
+# run the same commands. Hooks are filtered by path: a commit runs only the
+# checks for the files it touches.
+#:schema https://www.schemastore.org/prek.json
+
+default_install_hook_types = ["pre-commit", "pre-push"]
+default_stages = ["pre-commit"]
+
+# ── Style ────────────────────────────────────────────────────────────────────
+
+[[repos]]
+repo = "builtin"
+hooks = [
+    { id = "trailing-whitespace", exclude = '^(internal/site/dist/|testdata/)' },
+    { id = "end-of-file-fixer", exclude = '^(internal/site/dist/|testdata/)' },
+    { id = "check-yaml" },
+    { id = "check-toml" },
+    { id = "check-json" },
+    { id = "check-merge-conflict" },
+    # The built site is the one large thing that belongs here; its size has a
+    # budget of its own (`just size`).
+    { id = "check-added-large-files", args = ["--maxkb=500"], exclude = '^internal/site/dist/core\.wasm$' },
+    # ── Secrets (first line of defence; gitleaks is below) ──
+    { id = "detect-private-key" },
+]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "rust-fmt"
+name = "style: rustfmt"
+language = "system"
+entry = "just fmt-check-rust"
+files = '\.rs$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "go-fmt"
+name = "style: gofumpt + goimports"
+language = "system"
+entry = "just fmt-check-go"
+files = '\.go$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "proto-fmt"
+name = "style: buf format"
+language = "system"
+entry = "just fmt-check-proto"
+files = '^testdata/proto/.*\.proto$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "prettier"
+name = "style: prettier"
+language = "system"
+entry = "just fmt-check-web"
+files = '\.(ts|js|mjs|cjs|css|html|json|ya?ml)$'
+exclude = '^(testdata/|internal/site/dist/)'
+pass_filenames = false
+
+# ── Lint ─────────────────────────────────────────────────────────────────────
+
+[[repos.hooks]]
+id = "rust-lint"
+name = "lint: clippy (warnings are errors)"
+language = "system"
+entry = "just lint-rust"
+files = '^(crates/|Cargo\.(toml|lock)$|rust-toolchain\.toml$)'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "go-lint"
+name = "lint: golangci-lint (incl. layering rules)"
+language = "system"
+entry = "just lint-go"
+files = '^(.*\.go|go\.(mod|sum)|\.golangci\.yml)$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "proto-lint"
+name = "lint: buf lint"
+language = "system"
+entry = "just lint-proto"
+files = '^(testdata/proto/.*\.proto|buf\.yaml)$'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "web-typecheck"
+name = "lint: tsc (types in the web app and the scripts)"
+language = "system"
+entry = "just typecheck"
+files = '^(web/.*\.(ts|json)|scripts/.*\.ts|crates/core-wasm/)'
+pass_filenames = false
+
+# On every commit, not only when the index changes: a file renamed anywhere
+# can break a pointer in it.
+[[repos.hooks]]
+id = "llm-index"
+name = "lint: agent index (paths and recipes exist, size budget)"
+language = "system"
+entry = "just llm-check"
+always_run = true
+pass_filenames = false
+
+# ── Secrets ──────────────────────────────────────────────────────────────────
+
+[[repos.hooks]]
+id = "secrets-staged"
+name = "secrets: gitleaks (staged changes)"
+language = "system"
+entry = "just secrets-staged"
+always_run = true
+pass_filenames = false
+
+[[repos.hooks]]
+id = "secrets-push"
+name = "secrets: gitleaks (commits being pushed)"
+language = "system"
+entry = "just secrets-push"
+stages = ["pre-push"]
+always_run = true
+pass_filenames = false
+
+# ── Unit test coverage ───────────────────────────────────────────────────────
+
+[[repos.hooks]]
+id = "rust-cover"
+name = "coverage: Rust core, every line"
+language = "system"
+entry = "just cover-rust"
+files = '^(crates/|Cargo\.(toml|lock)$|testdata/(fixture\.binpb|golden/))'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "go-cover"
+name = "coverage: Go unit tier + per-package floors"
+language = "system"
+entry = "just cover-go"
+files = '^(.*\.go|go\.(mod|sum)|coverage\.json|testdata/|internal/site/dist/)'
+pass_filenames = false
+
+# The web tier needs the core built for the browser, which takes a release
+# build; it runs before a push.
+[[repos.hooks]]
+id = "web-cover"
+name = "coverage: web unit tier + thresholds"
+language = "system"
+entry = "just cover-web"
+stages = ["pre-push"]
+files = '^(web/|crates/|bunfig\.toml|testdata/fixture\.binpb)'
+pass_filenames = false
+
+# ── What is committed and derived ────────────────────────────────────────────
+
+# `go install` compiles what is committed, so the site in the binary is the
+# one in the repo. This rebuilds it, holds it to its size budget, and fails
+# when the commit forgot it.
+[[repos.hooks]]
+id = "dist"
+name = "derived: the embedded site is up to date, and within its size budget"
+language = "system"
+entry = "just dist-check"
+stages = ["pre-push"]
+files = '^(web/|crates/|Cargo\.(toml|lock)$|internal/site/dist/|scripts/size-budget\.ts)'
+pass_filenames = false
+
+[[repos.hooks]]
+id = "gen"
+name = "derived: the fixture image and the golden cases are up to date"
+language = "system"
+entry = "just gen-check"
+stages = ["pre-push"]
+files = '^(testdata/|buf\.(yaml|lock|gen\.yaml)$|cmd/golden/)'
+pass_filenames = false

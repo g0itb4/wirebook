@@ -1,0 +1,14 @@
+# gitleaks configuration. The default rules stay on; this file only adds
+# allowlists, and each one says why it is safe.
+title = "wirebook"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Lockfile integrity hashes"
+paths = ['''(^|/)bun\.lock$''', '''(^|/)go\.sum$''', '''(^|/)buf\.lock$''', '''(^|/)Cargo\.lock$''']
+
+[[allowlists]]
+description = "The built site: minified script and a WebAssembly module, where random-looking text is not a key"
+paths = ['''^internal/site/dist/''']

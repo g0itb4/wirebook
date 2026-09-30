@@ -1,0 +1,13 @@
+{
+  "exclude": ["github.com/g0itb4/wirebook/cmd", "github.com/g0itb4/wirebook/internal/testserver"],
+  "floors": {
+    "github.com/g0itb4/wirebook/internal/bufcli": 100,
+    "github.com/g0itb4/wirebook/internal/cli": 99,
+    "github.com/g0itb4/wirebook/internal/config": 100,
+    "github.com/g0itb4/wirebook/internal/covergate": 100,
+    "github.com/g0itb4/wirebook/internal/image": 100,
+    "github.com/g0itb4/wirebook/internal/plugin": 100,
+    "github.com/g0itb4/wirebook/internal/serve": 100,
+    "github.com/g0itb4/wirebook/internal/site": 100
+  }
+}
