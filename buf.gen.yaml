@@ -1,0 +1,28 @@
+version: v2
+clean: true
+
+# Go stubs of the fixture protos, for the test server that the end-to-end
+# tests call. The import path is derived from the proto package; the disable
+# entry keeps buf from rewriting go_package for a module we do not own.
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/g0itb4/wirebook/internal/testserver/gen
+  disable:
+    - module: buf.build/googleapis/googleapis
+
+plugins:
+  # Through `go tool`, so the plugin versions are pinned in go.mod and there
+  # is nothing to install globally.
+  - local: ["go", "tool", "protoc-gen-go"]
+    out: internal/testserver/gen
+    opt:
+      - paths=source_relative
+  - local: ["go", "tool", "protoc-gen-connect-go"]
+    out: internal/testserver/gen
+    opt:
+      - paths=source_relative
+
+inputs:
+  - directory: testdata/proto
