@@ -1,0 +1,43 @@
+# The toolchains every job needs: Go, Rust with the wasm target, bun, just,
+# and the two tools that turn the core into what the browser loads.
+#
+# Actions are pinned to a commit, and downloads to a checksum: what CI builds
+# is committed (internal/site/dist) and runs on the machines of everyone who
+# installs wirebook.
+name: setup
+description: Install the toolchains and the JavaScript dependencies
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      with:
+        go-version-file: go.mod
+    # rust-toolchain.toml names the version, the components and the target;
+    # rustup reads it on first use.
+    - run: rustup show
+      shell: bash
+    - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      with:
+        bun-version-file: package.json
+    - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6 # v2
+    # The justfile's recipes run under zsh, which the runner does not ship.
+    - run: sudo apt-get update && sudo apt-get install -y zsh
+      shell: bash
+    - name: Install wasm-bindgen and wasm-opt, each checked against its SHA-256
+      shell: bash
+      run: |
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        scripts/fetch-tool.sh \
+          "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+          "$WASM_BINDGEN_SHA256" \
+          "wasm-bindgen-${WASM_BINDGEN_VERSION}-x86_64-unknown-linux-musl/wasm-bindgen" \
+          "$HOME/.local/bin"
+        scripts/fetch-tool.sh \
+          "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+          "$BINARYEN_SHA256" \
+          "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt" \
+          "$HOME/.local/bin"
+    - run: bun install --frozen-lockfile
+      shell: bash

@@ -1,0 +1,110 @@
+# CI runs what a developer's hooks run, through the same `just` recipes, plus
+# the tiers that are too slow for a hook: the site in a browser, the speed
+# budgets, and the known vulnerabilities of what the code depends on.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # A dependency becomes vulnerable without a commit here: look weekly.
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The versions the hooks were written against, each download with the
+  # SHA-256 of its archive. Keep them in step with the tools on a developer's
+  # machine: the embedded site is compared byte for byte with a fresh build,
+  # and another wasm-opt writes other bytes.
+  GOLANGCI_LINT_VERSION: "2.14.0"
+  GOLANGCI_LINT_SHA256: ab90aeb7b066f92a33415b638a50fe5344bbb75a0d32ad30cc248d88f81032ab
+  GITLEAKS_VERSION: "8.30.1"
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+  BINARYEN_VERSION: "133"
+  BINARYEN_SHA256: 2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489
+  WASM_BINDGEN_VERSION: "0.2.127"
+  WASM_BINDGEN_SHA256: 61d4a7dc85acfa0d2354ccc0b8361928c7e52a746d17f28ebaa795ed3dc1614a
+  PREK_VERSION: "0.5.4"
+  CARGO_LLVM_COV_VERSION: "0.9.1"
+  CARGO_AUDIT_VERSION: "0.22.2"
+
+jobs:
+  # Every git hook of both stages on every file: style, lint, secrets, the
+  # unit tiers with their coverage floors, and the derived files.
+  hooks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The whole history: gitleaks scans every commit.
+          fetch-depth: 0
+          # No job pushes: the token does not stay on disk for a tool to find.
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Install golangci-lint, gitleaks, prek and cargo-llvm-cov
+        run: |
+          scripts/fetch-tool.sh \
+            "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64.tar.gz" \
+            "$GOLANGCI_LINT_SHA256" \
+            "golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64/golangci-lint" \
+            "$HOME/.local/bin"
+          scripts/fetch-tool.sh \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            "$GITLEAKS_SHA256" \
+            "gitleaks" \
+            "$HOME/.local/bin"
+          pipx install "prek==${PREK_VERSION}"
+          cargo install --locked cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION"
+      - run: just gen
+      - run: just check
+      - name: Scan the whole history for secrets
+        run: just secrets
+
+  # The built site, served by `wirebook serve`, in headless Chromium: every
+  # transport with every authentication scheme, the accessibility scan, and
+  # what a hostile page, file or frame cannot do. Then the speed of the core
+  # against its budgets.
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: just gen
+      - run: cd web && bunx playwright install --with-deps chromium
+      - run: just e2e
+        env:
+          CI: "true"
+      - run: just bench
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          retention-days: 7
+
+  # Known vulnerabilities in the Go modules, the Rust crates and the
+  # JavaScript packages, against the lock files.
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: cargo install --locked cargo-audit --version "$CARGO_AUDIT_VERSION"
+      - run: just gen
+      - run: just audit
