@@ -15,6 +15,7 @@ import (
 var fixtureRoots = []string{
 	"fixture/legacy/v1/proto2.proto",
 	"fixture/legacy/v1/proto3.proto",
+	"fixture/v1/catalog.proto",
 	"fixture/v1/editions.proto",
 	"fixture/v1/library.proto",
 }

@@ -58,6 +58,41 @@ export async function configure(
   await expect(page.getByRole("button", { name: `Environment: ${environment}` })).toBeVisible();
 }
 
+export function body(page: Page) {
+  return page.getByLabel("Request body, as JSON");
+}
+
+/** Type a body as JSON. A body opens as a form: this switches first. */
+export async function typeBody(page: Page, text: string): Promise<void> {
+  await page.getByRole("button", { name: "JSON", exact: true }).click();
+  await body(page).fill(text);
+}
+
+/** Everything the page has stored, as text. */
+export async function stored(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const out: unknown[] = [JSON.stringify(localStorage), JSON.stringify(sessionStorage), document.cookie];
+    for (const { name } of await indexedDB.databases()) {
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const request = indexedDB.open(name!);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      for (const store of db.objectStoreNames) {
+        out.push(
+          await new Promise((resolve, reject) => {
+            const request = db.transaction(store).objectStore(store).getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+          }),
+        );
+      }
+      db.close();
+    }
+    return JSON.stringify(out);
+  });
+}
+
 export async function send(page: Page): Promise<void> {
   await page.getByRole("button", { name: /^Send/ }).click();
 }
@@ -68,5 +103,5 @@ export async function seen(page: Page, api = API): Promise<{ scheme: string; pat
 }
 
 export function response(page: Page) {
-  return page.getByRole("region", { name: "Response" });
+  return page.getByRole("region", { name: "Response", exact: true });
 }

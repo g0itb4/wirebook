@@ -93,6 +93,13 @@ dist: wasm
     bun build src/main.ts --outfile ../{{ dist }}/app.js --target browser --format esm --minify
     cp src/index.html src/app.css ../{{ dist }}/
     cp src/gen/core_bg.wasm ../{{ dist }}/core.wasm
+    # The two typefaces of the page, Latin only, from the packages bun.lock pins.
+    mkdir -p ../{{ dist }}/fonts
+    fonts=../node_modules/@fontsource-variable
+    cp $fonts/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2 ../{{ dist }}/fonts/jetbrains-mono.woff2
+    cp $fonts/space-grotesk/files/space-grotesk-latin-wght-normal.woff2 ../{{ dist }}/fonts/space-grotesk.woff2
+    # Their licence asks that it goes where the fonts go.
+    cat $fonts/jetbrains-mono/LICENSE $fonts/space-grotesk/LICENSE > ../{{ dist }}/fonts/OFL.txt
     cd ..
     just size
 
@@ -120,8 +127,8 @@ bins: dist
 e2e *args: bins
     cd web && bunx playwright test "$@"
 
-# every test tier: the hooks, the site in a browser, and the speed budgets
-test: check e2e bench
+# every test tier: the hooks, the site in a browser, the speed budgets, and the snippets
+test: check e2e bench snippets
 
 # The module is compiled once per page load; what a person waits for after
 # that is the schema loading, and each keystroke being validated.
@@ -131,6 +138,14 @@ bench: dist
     @mkdir -p coverage
     go run ./cmd/benchimage
     bun scripts/bench.ts
+
+# The page offers a request as curl, fetch, Python and Go. The core's tests
+# hold the escaping; this holds that what comes out is code at all, with the
+# awkward inputs, by giving each snippet to sh, node, python3 and go.
+#
+# the request as code, read by each language's own parser
+snippets: dist
+    bun scripts/snippet-check.ts
 
 # ── style ────────────────────────────────────────────────────────────────────
 
@@ -257,11 +272,13 @@ cover-web: _glue
 # ── what is committed and derived ────────────────────────────────────────────
 
 # The built site is committed, because `go install` only compiles. This is
-# what keeps it from going stale.
+# what keeps it from going stale. A file of the build that git does not know
+# is a file the commit forgot: `git diff` alone would not say so.
 #
 # rebuild the embedded site and fail when it differs from what is committed
 dist-check: dist
     git diff --exit-code --stat -- internal/site/dist
+    @test -z "$(git ls-files --others --exclude-standard -- internal/site/dist)" || { echo "internal/site/dist has files that are not added to git:"; git ls-files --others --exclude-standard -- internal/site/dist; exit 1; }
 
 # regenerate the fixture image and the golden cases and fail when they differ from what is committed
 gen-check: gen

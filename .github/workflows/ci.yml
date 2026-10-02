@@ -71,7 +71,7 @@ jobs:
   # The built site, served by `wirebook serve`, in headless Chromium: every
   # transport with every authentication scheme, the accessibility scan, and
   # what a hostile page, file or frame cannot do. Then the speed of the core
-  # against its budgets.
+  # against its budgets, and the snippets against their languages' parsers.
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -86,6 +86,8 @@ jobs:
         env:
           CI: "true"
       - run: just bench
+      # The request as code, read by sh, node, python3 and go.
+      - run: just snippets
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

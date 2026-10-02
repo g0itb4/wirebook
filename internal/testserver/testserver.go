@@ -85,7 +85,8 @@ func New(opts Options) *Server {
 func (s *Server) Handler() (http.Handler, error) {
 	widgets := vanguard.NewService(fixturev1connect.NewWidgetServiceHandler(widgetService{s}))
 	library := vanguard.NewService(fixturev1connect.NewLibraryServiceHandler(libraryService{}))
-	transcoder, err := vanguard.NewTranscoder([]*vanguard.Service{widgets, library})
+	catalog := vanguard.NewService(fixturev1connect.NewCatalogServiceHandler(catalogService{}))
+	transcoder, err := vanguard.NewTranscoder([]*vanguard.Service{widgets, library, catalog})
 	if err != nil {
 		return nil, fmt.Errorf("testserver: %w", err)
 	}
@@ -257,4 +258,83 @@ func (libraryService) ListBooks(_ context.Context, request *connect.Request[fixt
 
 func (libraryService) UpdateBook(_ context.Context, request *connect.Request[fixturev1.UpdateBookRequest]) (*connect.Response[fixturev1.UpdateBookResponse], error) {
 	return connect.NewResponse(&fixturev1.UpdateBookResponse{Book: request.Msg.GetBook()}), nil
+}
+
+// The racks of the catalog, and how many gadgets each holds. North has more
+// than one page of them.
+const (
+	NorthRack = "11111111-1111-4111-8111-111111111111"
+	SouthRack = "22222222-2222-4222-8222-222222222222"
+)
+
+var gadgetsOn = map[string]int{NorthRack: 25, SouthRack: 2}
+
+// GadgetID is the id of the nth gadget of a rack.
+func GadgetID(rack string, n int) string {
+	return fmt.Sprintf("%s-0000-4000-8000-%012d", rack[:8], n)
+}
+
+type catalogService struct {
+	fixturev1connect.UnimplementedCatalogServiceHandler
+}
+
+func (catalogService) ListRacks(context.Context, *connect.Request[fixturev1.ListRacksRequest]) (*connect.Response[fixturev1.ListRacksResponse], error) {
+	return connect.NewResponse(&fixturev1.ListRacksResponse{Racks: []*fixturev1.Rack{
+		{Id: NorthRack, Name: "North"},
+		{Id: SouthRack, Name: "South"},
+	}}), nil
+}
+
+func gadget(rack string, n int) *fixturev1.Gadget {
+	return &fixturev1.Gadget{
+		Id:       GadgetID(rack, n),
+		RackId:   rack,
+		Title:    fmt.Sprintf("Gadget %d", n),
+		Slots:    1,
+		WeightKg: 1.5,
+		Kind:     fixturev1.GadgetKind_GADGET_KIND_TOOL,
+	}
+}
+
+// ListGadgets pages by an offset, written as the token.
+func (catalogService) ListGadgets(_ context.Context, request *connect.Request[fixturev1.ListGadgetsRequest]) (*connect.Response[fixturev1.ListGadgetsResponse], error) {
+	total, ok := gadgetsOn[request.Msg.GetRackId()]
+	if !ok {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no rack %q", request.Msg.GetRackId()))
+	}
+	size := int(request.Msg.GetPageSize())
+	if size <= 0 {
+		size = 10
+	}
+	start := 0
+	if token := request.Msg.GetPageToken(); token != "" {
+		if _, err := fmt.Sscanf(token, "%d", &start); err != nil || start < 0 || start > total {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("the page token %q is not one of this list", token))
+		}
+	}
+	end := min(start+size, total)
+	response := &fixturev1.ListGadgetsResponse{}
+	for n := start; n < end; n++ {
+		response.Gadgets = append(response.Gadgets, gadget(request.Msg.GetRackId(), n+1))
+	}
+	if end < total {
+		response.NextPageToken = fmt.Sprint(end)
+	}
+	return connect.NewResponse(response), nil
+}
+
+func (catalogService) GetGadget(_ context.Context, request *connect.Request[fixturev1.GetGadgetRequest]) (*connect.Response[fixturev1.GetGadgetResponse], error) {
+	id := request.Msg.GetGadgetId()
+	for rack, total := range gadgetsOn {
+		for n := 1; n <= total; n++ {
+			if GadgetID(rack, n) == id {
+				return connect.NewResponse(&fixturev1.GetGadgetResponse{Gadget: gadget(rack, n)}), nil
+			}
+		}
+	}
+	return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no gadget %q", id))
+}
+
+func (catalogService) CreateGadget(_ context.Context, request *connect.Request[fixturev1.CreateGadgetRequest]) (*connect.Response[fixturev1.CreateGadgetResponse], error) {
+	return connect.NewResponse(&fixturev1.CreateGadgetResponse{Gadget: request.Msg.GetGadget()}), nil
 }

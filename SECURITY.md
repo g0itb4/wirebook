@@ -51,12 +51,12 @@ that a change to a rule changes its test in the same commit.
   browser's store for this site. `web/src/lib/environments.ts`.
 - **Bound to its destination.** A secret is used only for the environment as
   it was when the secret was typed: base URL, scheme, key name and place,
-  headers. Change any of them outside the dialog (a new build of the site,
+  headers, variables. Change any of them outside the dialog (a new build of the site,
   a stored row, an import) and the secret has to be typed again.
 - Never in the history, an export, the site's files, or the page's markup.
   The dialog holds no field once it is closed.
-- Shown as a shell variable in the request preview and in the copied curl
-  command, unless "include the credential" is ticked.
+- Shown as a variable in the request preview and in the copied code, unless
+  "include the credential" is ticked.
 - `wirebook.json` has no field for one, an unknown field is an error, and a
   URL in it cannot carry one. `internal/config/config.go`.
 - A custom header named like a credential (`Authorization`, `X-Vault-Token`,
@@ -64,6 +64,43 @@ that a change to a rule changes its test in the same commit.
   API key scheme sends a key under any header name.
 - The console says so when a credential would travel over plain http to
   another machine.
+
+### A pick of ids is a request like any other
+
+A field that names a resource can list real ids from the API. That call
+carries the credential, so:
+
+- It is made on a click, never when a page opens. The button names the
+  method it calls. `web/e2e/easy.spec.ts` counts the calls the API saw.
+- Only a unary method declared `NO_SIDE_EFFECTS` can be the list, by
+  convention or by `lookups` in `wirebook.json`; an entry that names another
+  kind of method is not used, and the overview says so.
+  `crates/core/src/reference.rs`, `crates/core/tests/easy.rs`.
+- It goes through the same `request` in the core and the same `send` as the
+  Send button: every check on a URL, a header and a credential holds.
+  `web/src/lib/lookup.ts`.
+- What it returns, and the ids seen in responses, live in the tab's memory,
+  per destination of the environment. Not in the browser's store, the
+  history or an export. `web/src/lib/lookup.test.ts`, and the storage dump
+  in `web/e2e/easy.spec.ts`.
+
+### A variable does not decide where a request goes
+
+`{{name}}` is replaced in the text values of a body and in the values of
+custom headers. Not in the base URL, a header's name or the credential.
+`crates/core/src/vars.rs`, `crates/core/tests/easy.rs`.
+
+- A value is put into a JSON text as a JSON text: a quote or a brace in it
+  cannot add a field. In a header it meets the same check as a typed value:
+  no line break. A body field that a REST rule puts into the path is, after
+  the replacement, a value like one that was typed: escaped, refused when it
+  is `.` or `..`, and held under the base URL.
+- Variables are stored and exported as they are, so a name that looks like a
+  credential is refused, in the dialog, in a stored row, in an import and in
+  `wirebook.json`.
+- They are part of the secret's destination: variables that change outside
+  the dialog ask for the secret again.
+- The history keeps the body as typed, with its placeholders.
 
 ### An imported file replaces nothing
 
@@ -86,6 +123,9 @@ unless asked. `crates/core/src/scrub.rs`.
 - Every build declares a Content-Security-Policy: no inline script, no
   `eval`, nothing loaded from elsewhere. A directory names its files; the
   single file names its script and style by hash. `internal/site/site.go`.
+- The fonts are files of the site (`font-src 'self'`), or inside the single
+  file (`font-src data:`). No font, style or script comes from another
+  origin, so no other server learns who reads the documentation.
 - The page refuses to run in a frame of another site, with or without the
   header that forbids it. `web/src/lib/guard.ts`.
 
@@ -96,6 +136,14 @@ thing left to the shell. A verb, a URL, a header or a body written by someone
 else cannot become a second command. `--globoff` keeps curl from reading
 braces as a pattern. The quoting is for sh, bash and zsh.
 `crates/core/src/curl.rs`.
+
+The same request as `fetch`, Python and Go is built in the core too, never
+on the page. Every value from outside is written as one string literal of
+its language; a credential is read from the environment
+(`process.env.TOKEN`, `os.environ["TOKEN"]`, `os.Getenv("TOKEN")`) unless
+asked for. `crates/core/src/snippet.rs`, with the hostile strings in
+`crates/core/tests/security.rs`; `just snippets` gives 160 of them to each
+language's own parser.
 
 ### The development server serves one page
 
@@ -116,8 +164,9 @@ braces as a pattern. The quoting is for sh, bash and zsh.
 
 ### The command writes its own files
 
-`wirebook build` never writes through a symbolic link, the directory or a
-file in it: a repository cannot aim the build at a file elsewhere. The buf
+`wirebook build` never writes through a symbolic link, the directory, a
+directory in it (`fonts`) or a file: a repository cannot aim the build at a
+file elsewhere. The buf
 plugin's output name stays inside the output directory. buf is run without a
 shell. `internal/site/site.go`, `internal/plugin/plugin.go`.
 
@@ -149,6 +198,13 @@ on every push and weekly. `.github/workflows/ci.yml`.
 - **The API's own errors.** A hostile API can answer anything; the page
   shows it as text.
 - **Other shells.** The curl command is quoted for sh, bash and zsh.
+- **A list that is not what it says.** A picker trusts the schema's
+  `NO_SIDE_EFFECTS`. A method declared so that changes something is called
+  all the same, on the click.
+- **What a variable holds.** A variable is stored and exported. A secret
+  given a harmless name is kept like any other text.
+- **A rule the server enforces differently.** The warnings are a subset of
+  protovalidate, without patterns and CEL. They are a help, not a guard.
 - **A schema nobody reviewed.** The explorer shows where a request will go
   before it goes; a proto file can still describe an API you did not mean
   to call.

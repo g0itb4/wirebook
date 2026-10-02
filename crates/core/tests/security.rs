@@ -206,7 +206,7 @@ fn with_rule(kind: &str, path: &str) -> Explorer {
     options.push(u8::try_from(rule.len()).unwrap());
     options.extend_from_slice(&rule);
     method.options = MethodOptions::decode_from_slice(&options).unwrap().into();
-    Explorer::new(&set.encode_to_vec(), common::ROOTS).unwrap()
+    Explorer::new(&set.encode_to_vec(), common::OPTIONS).unwrap()
 }
 
 #[test]
@@ -315,7 +315,7 @@ fn a_field_marked_sensitive_is_taken_out_of_what_is_kept() {
     assert!(scrub(&schema, "no.Such", "{}").is_err());
     assert!(scrub(&schema, "fixture.v1.Login", "{").is_err());
     let through = common::explorer()
-        .scrub("fixture.v1.Login", r#"{"password": "x"}"#)
+        .scrub("fixture.v1.Login", r#"{"password": "x"}"#, "{}")
         .unwrap();
     assert_eq!(
         serde_json::from_str::<Value>(&through).unwrap(),
@@ -419,7 +419,7 @@ fn a_service_or_method_that_is_not_named_with_identifiers_is_not_called() {
         ("S", "#"),
     ] {
         // Such a set may not load at all; when it does, the method is not sent.
-        if let Ok(explorer) = Explorer::new(&set(service, method), "[]") {
+        if let Ok(explorer) = Explorer::new(&set(service, method), "{}") {
             let request = json!({"method": format!("{service}/{method}"), "body": "{}", "transport": "connect-json", "baseUrl": "/"});
             let error = explorer
                 .request(&request.to_string())
@@ -434,7 +434,7 @@ fn a_service_or_method_that_is_not_named_with_identifiers_is_not_called() {
         }
     }
     // Plain names are sent, without a package too.
-    let explorer = Explorer::new(&set("Plain_1", "Do"), "[]").unwrap();
+    let explorer = Explorer::new(&set("Plain_1", "Do"), "{}").unwrap();
     let request =
         json!({"method": "Plain_1/Do", "body": "{}", "transport": "connect-json", "baseUrl": "/"});
     assert_eq!(

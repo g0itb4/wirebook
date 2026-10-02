@@ -11,6 +11,7 @@ managed:
       value: github.com/g0itb4/wirebook/internal/testserver/gen
   disable:
     - module: buf.build/googleapis/googleapis
+    - module: buf.build/bufbuild/protovalidate
 
 plugins:
   # Through `go tool`, so the plugin versions are pinned in go.mod and there

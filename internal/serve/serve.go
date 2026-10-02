@@ -197,12 +197,15 @@ var contentTypes = map[string]string{
 	".json":  "application/json",
 	".wasm":  "application/wasm",
 	".binpb": "application/octet-stream",
+	".woff2": "font/woff2",
+	".txt":   "text/plain; charset=utf-8",
 }
 
-// The page runs its own script and the core, and calls any API it is pointed
-// at. Nothing else: no inline script, no frame, no plugin.
+// The page runs its own script and the core, loads its own style and fonts,
+// and calls any API it is pointed at. Nothing else: no inline script, no
+// frame, no plugin.
 const contentSecurityPolicy = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +
-	"connect-src *; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	"font-src 'self'; connect-src *; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
 func (s *Server) static(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/")

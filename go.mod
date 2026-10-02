@@ -9,7 +9,10 @@ require (
 	google.golang.org/protobuf v1.36.12
 )
 
-require google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459 // indirect
+require (
+	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.12-20260825204119-511051f7f437.2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260921155816-b14227669459 // indirect
+)
 
 tool (
 	connectrpc.com/connect/cmd/protoc-gen-connect-go

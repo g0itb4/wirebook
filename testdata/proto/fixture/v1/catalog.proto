@@ -1,0 +1,245 @@
+// proto3 fixture: protovalidate rules and examples, and resources that
+// refer to each other by id, the way an API with lists does. In proto3 a
+// scalar has no presence, so a rule applies to its zero value too, unless
+// the field says to ignore it.
+syntax = "proto3";
+
+package fixture.v1;
+
+import "buf/validate/validate.proto";
+
+// What a gadget is for.
+enum GadgetKind {
+  GADGET_KIND_UNSPECIFIED = 0;
+  GADGET_KIND_TOOL = 1;
+  GADGET_KIND_TOY = 2;
+}
+
+// A rack that holds gadgets.
+message Rack {
+  string id = 1 [(buf.validate.field).string.uuid = true];
+  string name = 2;
+}
+
+// A gadget on a rack. Its rules are what the explorer shows and checks.
+message Gadget {
+  option (buf.validate.message).cel = {
+    id: "gadget.heavy"
+    message: "a gadget over 10 kg takes one slot"
+    expression: "this.weight_kg <= 10.0 || this.slots == 1"
+  };
+
+  string id = 1 [(buf.validate.field).string = {
+    uuid: true
+    example: ["3f2b6c1e-8a4d-4f0b-9c7e-2d1a5b6c7d8e"]
+  }];
+  // The rack it is on.
+  string rack_id = 2 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  string title = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 40
+    example: ["Sprocket"]
+  }];
+  int32 slots = 4 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 3
+    example: [2]
+  }];
+  double weight_kg = 5 [(buf.validate.field).double.gt = 0];
+  GadgetKind kind = 6 [(buf.validate.field).enum = {
+    defined_only: true
+    example: [1]
+  }];
+  repeated string tags = 7 [(buf.validate.field).repeated = {
+    max_items: 3
+    unique: true
+  }];
+  // Three letters, a dash, four digits.
+  string code = 8 [
+    (buf.validate.field).string.pattern = "^[A-Z]{3}-[0-9]{4}$",
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
+  map<string, string> labels = 9 [(buf.validate.field).map.max_pairs = 2];
+  string finish = 10 [
+    (buf.validate.field).string = {
+      in: [
+        "matt",
+        "gloss"
+      ]
+    },
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
+  int64 serial = 11 [(buf.validate.field).int64 = {
+    gt: 0
+    lt: 9007199254740993
+  }];
+  // Names no message of this package: no list to pick from.
+  string owner_id = 12;
+  // Two messages end with "part", so which one is meant is not known.
+  string part_id = 13;
+  // Its list is not declared free of side effects, so it is never called.
+  string crate_id = 14;
+  Gadget spare = 15;
+  repeated Gadget bundle = 16 [(buf.validate.field).repeated.min_items = 0];
+  bool boxed = 17 [(buf.validate.field).bool.const = true];
+  bytes seal = 18 [(buf.validate.field).bytes.max_len = 4];
+  string revision = 19 [(buf.validate.field).string.const = "r1"];
+  string batch = 20 [(buf.validate.field).string.len = 3];
+  map<string, Gadget> spares_by_slot = 21;
+  GadgetKind second_kind = 22 [(buf.validate.field).enum = {
+    in: [
+      1,
+      2
+    ]
+  }];
+  float rating = 23 [(buf.validate.field).float = {
+    gte: 0
+    lt: 5
+  }];
+  string contact = 24 [
+    (buf.validate.field).string.email = true,
+    (buf.validate.field).ignore = IGNORE_IF_ZERO_VALUE
+  ];
+  string note = 25 [(buf.validate.field).cel = {
+    id: "gadget.note"
+    message: "a note does not start with a space"
+    expression: "!this.startsWith(' ')"
+  }];
+  // An id that is a number: there is no list of those to pick from.
+  int64 legacy_id = 26;
+  // A rule that is switched off. The fixture needs one; the lint forbids it.
+  // buf:lint:ignore PROTOVALIDATE
+  string draft = 27 [
+    (buf.validate.field).string.min_len = 5,
+    (buf.validate.field).ignore = IGNORE_ALWAYS
+  ];
+  // An example that is not one of the enum's values is shown as it is.
+  GadgetKind third_kind = 28 [(buf.validate.field).enum.example = 9];
+  // A rule whose only text is its expression.
+  string remark = 29 [(buf.validate.field).cel = {
+    id: "gadget.remark"
+    expression: "this.size() < 99"
+  }];
+}
+
+// A part kept as a spare.
+message SparePart {
+  string id = 1;
+}
+
+// A part of the body.
+message BodyPart {
+  string id = 1;
+}
+
+// A crate gadgets ship in.
+message Crate {
+  string id = 1;
+  string label = 2;
+}
+
+message ListRacksRequest {}
+
+message ListRacksResponse {
+  repeated Rack racks = 1;
+}
+
+message ListGadgetsRequest {
+  // Only gadgets on this rack.
+  string rack_id = 1 [
+    (buf.validate.field).required = true,
+    (buf.validate.field).string.uuid = true
+  ];
+  GadgetKind kind = 2;
+  int32 page_size = 3 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 20
+  }];
+  string page_token = 4;
+}
+
+message ListGadgetsResponse {
+  repeated Gadget gadgets = 1;
+  string next_page_token = 2;
+}
+
+message GetGadgetRequest {
+  string gadget_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetGadgetResponse {
+  Gadget gadget = 1;
+}
+
+message CreateGadgetRequest {
+  Gadget gadget = 1 [(buf.validate.field).required = true];
+}
+
+message CreateGadgetResponse {
+  Gadget gadget = 1;
+}
+
+message ListFeaturedGadgetsRequest {}
+
+message ListFeaturedGadgetsResponse {
+  repeated Gadget gadgets = 1;
+}
+
+message ListSparePartsRequest {}
+
+message ListSparePartsResponse {
+  repeated SparePart spare_parts = 1;
+}
+
+message ListBodyPartsRequest {}
+
+message ListBodyPartsResponse {
+  repeated BodyPart body_parts = 1;
+}
+
+message ListCratesRequest {}
+
+message ListCratesResponse {
+  repeated Crate crates = 1;
+}
+
+// Racks and the gadgets on them.
+service CatalogService {
+  // Every rack.
+  rpc ListRacks(ListRacksRequest) returns (ListRacksResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // The gadgets on one rack, a page at a time.
+  rpc ListGadgets(ListGadgetsRequest) returns (ListGadgetsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // One gadget.
+  rpc GetGadget(GetGadgetRequest) returns (GetGadgetResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // A second list of gadgets: the one named after them is the one to pick
+  // from.
+  rpc ListFeaturedGadgets(ListFeaturedGadgetsRequest) returns (ListFeaturedGadgetsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Put a gadget on a rack.
+  rpc CreateGadget(CreateGadgetRequest) returns (CreateGadgetResponse);
+
+  rpc ListSpareParts(ListSparePartsRequest) returns (ListSparePartsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  rpc ListBodyParts(ListBodyPartsRequest) returns (ListBodyPartsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // Listing crates counts them, which is a side effect: not declared safe.
+  rpc ListCrates(ListCratesRequest) returns (ListCratesResponse);
+}

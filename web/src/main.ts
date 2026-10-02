@@ -36,7 +36,7 @@ async function boot(): Promise<void> {
   const config = (inlineConfig ? JSON.parse(inlineConfig) : await (await get("config.json")).json()) as SiteConfig;
   const image = inlineSchema ? decode(inlineSchema) : new Uint8Array(await (await get("schema.binpb")).arrayBuffer());
   const wasm = inlineCore ? decode(inlineCore) : await (await get("core.wasm")).arrayBuffer();
-  const core = await Core.load(wasm as BufferSource, image, config.roots);
+  const core = await Core.load(wasm as BufferSource, image, { roots: config.roots, lookups: config.lookups });
 
   // One store per site: two sites on one origin do not share environments.
   // And one per API: `wirebook serve` shows every repository at the same

@@ -9,6 +9,7 @@ import type { Environment, RequestSpec, SiteConfig } from "./types";
 const root = join(import.meta.dir, "../../..");
 
 export const ROOTS = [
+  "fixture/v1/catalog.proto",
   "fixture/v1/editions.proto",
   "fixture/v1/library.proto",
   "fixture/legacy/v1/proto3.proto",
@@ -18,7 +19,7 @@ export const ROOTS = [
 const loaded = await Core.load(
   readFileSync(join(root, "web/src/gen/core_bg.wasm")),
   new Uint8Array(readFileSync(join(root, "testdata/fixture.binpb"))),
-  ROOTS,
+  { roots: ROOTS, lookups: {} },
 );
 
 export function core(): Core {
@@ -26,7 +27,16 @@ export function core(): Core {
 }
 
 export function config(overrides: Partial<SiteConfig> = {}): SiteConfig {
-  return { id: "fixture", title: "Fixture", roots: ROOTS, environments: [], auth: [], liveReload: false, ...overrides };
+  return {
+    id: "fixture",
+    title: "Fixture",
+    roots: ROOTS,
+    environments: [],
+    auth: [],
+    lookups: {},
+    liveReload: false,
+    ...overrides,
+  };
 }
 
 export function spec(overrides: Partial<RequestSpec> = {}): RequestSpec {
@@ -39,6 +49,7 @@ export function spec(overrides: Partial<RequestSpec> = {}): RequestSpec {
     auth: { scheme: "none" },
     binding: 0,
     timeoutMs: null,
+    variables: {},
     ...overrides,
   };
 }
@@ -50,6 +61,7 @@ export function environment(overrides: Partial<Environment> = {}): Environment {
     baseUrl: "http://api.test",
     auth: { scheme: "none" },
     headers: [],
+    variables: {},
     builtin: true,
     ...overrides,
   };

@@ -1,10 +1,10 @@
-// Accessibility: an automated scan of every kind of page, at a desktop and
-// at a phone width, against WCAG 2.2 AA; and the things a scan cannot see,
-// done from the keyboard.
+// Accessibility: an automated scan of every kind of page against WCAG 2.2
+// AA, at the three widths the layout changes at; and the things a scan
+// cannot see, done from the keyboard.
 import AxeBuilder from "@axe-core/playwright";
 import { type Page, expect, test } from "@playwright/test";
 
-import { CREDENTIALS, GET_WIDGET, configure, open, response, send } from "./helpers";
+import { CREDENTIALS, GET_WIDGET, configure, open, response, send, typeBody } from "./helpers";
 
 async function scan(page: Page, what: string): Promise<void> {
   const results = await new AxeBuilder({ page })
@@ -17,7 +17,8 @@ async function scan(page: Page, what: string): Promise<void> {
 }
 
 for (const [name, width, height] of [
-  ["desktop", 1280, 900],
+  ["three panes", 1440, 900],
+  ["two panes", 1000, 900],
   ["phone", 390, 844],
 ] as const) {
   test.describe(name, () => {
@@ -39,10 +40,19 @@ for (const [name, width, height] of [
 
       await open(page, GET_WIDGET);
       await configure(page, "Proxy to 127.0.0.1:18080", CREDENTIALS.bearer!);
-      await scan(page, "method");
-      await page.getByLabel("Request body, as JSON").fill('{"nope": 1}');
+      await scan(page, "method, as a form");
+      await open(page, "#/fixture.v1.CatalogService/CreateGadget");
+      await scan(page, "method, a form with warnings");
+      await page.getByLabel("Language").getByRole("button", { name: "Go" }).click();
+      await scan(page, "method, with code");
+      await open(page, "#/fixture.v1.CatalogService/ListGadgets");
+      await page.getByRole("button", { name: "Pick rackId from ListRacks" }).click();
+      await expect(page.getByRole("option", { name: /North/ })).toBeVisible();
+      await scan(page, "method, with a list to pick from");
+      await open(page, GET_WIDGET);
+      await typeBody(page, '{"nope": 1}');
       await scan(page, "method with an invalid body");
-      await page.getByLabel("Request body, as JSON").fill('{"id": "nope"}');
+      await typeBody(page, '{"id": "nope"}');
       await send(page);
       await expect(response(page)).toContainText("not_found");
       await scan(page, "method with an error");
@@ -52,7 +62,14 @@ for (const [name, width, height] of [
     });
 
     test("no page scrolls sideways", async ({ page }) => {
-      for (const hash of ["#/", "#/fixture.v1.Widget", GET_WIDGET, "#/fixture.v1.LibraryService/GetBook"]) {
+      for (const hash of [
+        "#/",
+        "#/fixture.v1.Widget",
+        "#/fixture.v1.Gadget",
+        GET_WIDGET,
+        "#/fixture.v1.LibraryService/GetBook",
+        "#/fixture.v1.CatalogService/CreateGadget",
+      ]) {
         await open(page, hash);
         const overflow = await page.evaluate(
           () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
@@ -62,18 +79,6 @@ for (const [name, width, height] of [
     });
   });
 }
-
-test("dark colours pass the same scan", async ({ page }) => {
-  await page.emulateMedia({ colorScheme: "dark" });
-  await open(page);
-  await scan(page, "overview, dark");
-  await open(page, GET_WIDGET);
-  await configure(page, "Proxy to 127.0.0.1:18080", CREDENTIALS.bearer!);
-  await page.getByLabel("Request body, as JSON").fill('{"id": "w1"}');
-  await send(page);
-  await expect(response(page).getByLabel("Response body")).toBeVisible();
-  await scan(page, "method, dark");
-});
 
 test("the keyboard reaches everything, starting with a way past the menu", async ({ page }) => {
   await open(page);

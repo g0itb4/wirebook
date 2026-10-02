@@ -1,38 +1,48 @@
-/* One stylesheet, no framework. Colours are set once, for light and for
-   dark; every pair of text and ground meets WCAG AA. */
-:root {
-  --ground: #ffffff;
-  --panel: #f5f6f7;
-  --line: #d3d7db;
-  --text: #1b1d1f;
-  --muted: #565c63;
-  --link: #0b55c4;
-  --focus: #0b55c4;
-  --good-ground: #e3f3e8;
-  --good-text: #0a5c27;
-  --warn-ground: #fcebdc;
-  --warn-text: #7d3600;
-  --bad: #a3180f;
-  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  color-scheme: light dark;
+/* One stylesheet, one palette. Dark, hard-edged, dense: the look of a
+   terminal, for people who live in one.
+
+   Colour is signal and nothing else. Cyan reads, magenta writes, amber is a
+   stream or a warning, green is ok, red is an error. Each has its word
+   beside it, so nothing is said by colour alone. Every pair of text and
+   ground meets WCAG AA.
+
+   The typefaces: JetBrains Mono, copyright The JetBrains Mono Project
+   Authors, and Space Grotesk, copyright The Space Grotesk Project Authors.
+   Both under the SIL Open Font License 1.1: fonts/OFL.txt beside this file,
+   and https://openfontlicense.org. */
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("fonts/jetbrains-mono.woff2") format("woff2");
+  font-weight: 100 800;
+  font-display: swap;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #121416;
-    --panel: #1c1f22;
-    --line: #3a4046;
-    --text: #e8eaec;
-    --muted: #a9b0b7;
-    --link: #8fb8ff;
-    --focus: #8fb8ff;
-    --good-ground: #12301c;
-    --good-text: #8fd6a5;
-    --warn-ground: #3a2410;
-    --warn-text: #f6b57a;
-    --bad: #ff9d94;
-  }
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("fonts/space-grotesk.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+:root {
+  --ground: #0a0c0f;
+  --panel: #11151a;
+  --raised: #181d24;
+  --line: #232a33;
+  --edge: #3d4856;
+  --text: #d7dce2;
+  --muted: #8f98a5;
+  --read: #45dcf2;
+  --write: #ff6ad5;
+  --stream: #ffc24d;
+  --ok: #4fe28f;
+  --error: #ff7373;
+  --focus: #45dcf2;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --top: 3rem;
+  color-scheme: dark;
 }
 
 *,
@@ -47,7 +57,7 @@
 }
 
 html {
-  font: 100%/1.5 var(--sans);
+  font: 100%/1.45 var(--sans);
   background: var(--ground);
   color: var(--text);
 }
@@ -57,57 +67,81 @@ body {
 }
 
 a {
-  color: var(--link);
-  text-underline-offset: 0.15em;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--edge);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-color: var(--read);
 }
 
 :focus-visible {
-  outline: 3px solid var(--focus);
-  outline-offset: 2px;
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
 }
 
-main:focus {
+main:focus,
+.pane:focus {
   outline: none;
 }
 
 code,
 pre,
-textarea {
+textarea,
+input,
+select,
+button,
+.button {
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 pre {
   margin: 0.5rem 0;
-  padding: 0.75rem;
+  padding: 0.6rem 0.7rem;
   overflow: auto;
-  max-height: 32rem;
+  max-height: 30rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 6px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--sans);
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.6rem;
-  line-height: 1.25;
+  margin: 0 0 0.35rem;
+  font-size: 1.5rem;
+  line-height: 1.2;
   overflow-wrap: anywhere;
 }
 
 h2 {
-  margin: 2rem 0 0.5rem;
-  font-size: 1.2rem;
+  margin: 1.75rem 0 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 
 h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+  margin: 0 0 0.2rem;
+  font-size: 0.9375rem;
 }
 
 p {
-  margin: 0.5rem 0;
+  margin: 0.4rem 0;
 }
 
 .muted {
@@ -115,20 +149,20 @@ p {
 }
 
 .small {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .bad,
 .warn-text {
-  color: var(--bad);
+  color: var(--error);
 }
 
 .kind {
   margin: 0;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font: 500 0.6875rem/1.4 var(--mono);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
 }
 
 .doc p {
@@ -136,28 +170,43 @@ p {
   max-width: 44rem;
 }
 
+/* A tag: a word in a box. Its colour repeats what the word says. */
 .badge {
   display: inline-block;
-  padding: 0 0.45rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel);
+  padding: 0 0.35rem;
+  border: 1px solid var(--edge);
   color: var(--text);
-  font: 500 0.75rem/1.6 var(--sans);
+  font: 500 0.6875rem/1.5 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   white-space: nowrap;
   vertical-align: middle;
 }
 
-.badge.good {
-  border-color: transparent;
-  background: var(--good-ground);
-  color: var(--good-text);
+.badge.read {
+  border-color: var(--read);
+  color: var(--read);
 }
 
+.badge.write {
+  border-color: var(--write);
+  color: var(--write);
+}
+
+.badge.stream,
 .badge.warn {
-  border-color: transparent;
-  background: var(--warn-ground);
-  color: var(--warn-text);
+  border-color: var(--stream);
+  color: var(--stream);
+}
+
+.badge.good {
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.badge.error {
+  border-color: var(--error);
+  color: var(--error);
 }
 
 .skip {
@@ -165,10 +214,9 @@ p {
   left: 0.5rem;
   top: -4rem;
   z-index: 20;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.6rem;
   background: var(--ground);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border: 1px solid var(--read);
 }
 
 .skip:focus {
@@ -193,14 +241,16 @@ p {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 1rem;
+  min-height: var(--top);
+  padding: 0.35rem 0.9rem;
   background: var(--ground);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--edge);
 }
 
 .brand {
-  font-weight: 650;
-  color: var(--text);
+  font: 700 0.8125rem/1 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
   text-decoration: none;
   white-space: nowrap;
   overflow: hidden;
@@ -210,67 +260,79 @@ p {
 .search {
   position: relative;
   flex: 1 1 12rem;
-  max-width: 32rem;
+  max-width: 34rem;
   margin-left: auto;
 }
 
 #hits {
   position: absolute;
   inset: 100% 0 auto 0;
-  margin: 0.25rem 0 0;
-  padding: 0.25rem;
+  margin: 2px 0 0;
+  padding: 0;
   max-height: 60vh;
   overflow: auto;
   list-style: none;
-  background: var(--ground);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+  background: var(--panel);
+  border: 1px solid var(--edge);
 }
 
 #hits li {
-  padding: 0.35rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
   overflow-wrap: anywhere;
 }
 
 #hits li[aria-selected="true"] {
-  background: var(--panel);
-  outline: 2px solid var(--focus);
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--read);
 }
 
 .hit-name {
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
 }
 
 #menu {
   display: none;
 }
 
+.dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: 0.4rem;
+  background: var(--ok);
+}
+
+/* Hollow: a credential is still to be set. */
+.dot.unset {
+  background: none;
+  border: 1px solid var(--stream);
+}
+
 .layout {
   display: grid;
-  grid-template-columns: 19rem minmax(0, 1fr);
+  grid-template-columns: 17rem minmax(0, 1fr);
 }
 
 nav {
   position: sticky;
-  top: 3.25rem;
+  top: var(--top);
   align-self: start;
-  max-height: calc(100vh - 3.25rem);
+  max-height: calc(100vh - var(--top));
   overflow: auto;
-  padding: 0.75rem 1rem 2rem;
+  padding: 0.6rem 0.6rem 2rem;
   border-right: 1px solid var(--line);
-  font-size: 0.9rem;
+  font: 0.8125rem/1.35 var(--mono);
 }
 
 nav h2 {
-  margin: 0.75rem 0 0.15rem;
-  color: var(--muted);
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  margin: 0.6rem 0 0.1rem;
+  padding: 0;
+  border: 0;
+  font: 500 0.625rem/1.4 var(--mono);
+  letter-spacing: 0.12em;
 }
 
 nav ul {
@@ -280,14 +342,18 @@ nav ul {
 }
 
 nav ul ul {
-  padding-left: 0.9rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--line);
+  margin-left: 0.3rem;
 }
 
+/* Dense, and still a target a finger can hit: 24 px high. */
 nav a {
-  display: block;
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.5rem;
+  padding: 0 0.35rem;
   text-decoration: none;
   overflow-wrap: anywhere;
 }
@@ -297,35 +363,92 @@ nav a:hover {
 }
 
 nav a[aria-current="page"] {
-  background: var(--panel);
-  box-shadow: inset 3px 0 0 var(--link);
-  font-weight: 650;
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--read);
 }
 
 nav a.deprecated {
   text-decoration: line-through;
+  text-decoration-color: var(--muted);
+}
+
+/* The kind of a method, as one letter: R, W or S. */
+.tag {
+  flex: none;
+  width: 0.9rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.tag.read {
+  color: var(--read);
+}
+
+.tag.write {
+  color: var(--write);
+}
+
+.tag.stream {
+  color: var(--stream);
 }
 
 nav summary {
-  margin-top: 0.5rem;
-  padding: 0.2rem 0;
-  font-weight: 650;
+  margin-top: 0.4rem;
+  padding: 0.15rem 0;
+  font-weight: 700;
   cursor: pointer;
   overflow-wrap: anywhere;
 }
 
+/* The page: the reference, and beside it the console or an example. */
 main {
   min-width: 0;
-  max-width: 62rem;
-  padding: 1.5rem 2rem 6rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+main.split {
+  grid-template-columns: minmax(0, 1fr) minmax(24rem, 36rem);
+}
+
+.pane {
+  min-width: 0;
+  padding: 1.1rem 1.4rem 5rem;
+}
+
+.pane.side {
+  position: sticky;
+  top: var(--top);
+  align-self: start;
+  max-height: calc(100vh - var(--top));
+  overflow: auto;
+  padding-top: 0.8rem;
+  background: var(--panel);
+  border-left: 1px solid var(--edge);
+}
+
+.pane.side {
+  font-size: 0.875rem;
+}
+
+.pane.side pre,
+.pane.side input,
+.pane.side select,
+.pane.side textarea {
+  background: var(--ground);
+}
+
+.pane.side h2:first-child {
+  margin-top: 0;
 }
 
 .boot,
 .fatal {
+  display: block;
   padding: 3rem 2rem;
 }
 
-/* ── documentation ─────────────────────────────────────────────────────── */
+/* ── reference ─────────────────────────────────────────────────────────── */
 
 .scroll {
   overflow-x: auto;
@@ -334,7 +457,8 @@ main {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.8125rem;
+  line-height: 1.35;
 }
 
 caption {
@@ -347,7 +471,7 @@ caption {
 
 th,
 td {
-  padding: 0.5rem 0.75rem 0.5rem 0;
+  padding: 0.3rem 0.7rem 0.3rem 0;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
@@ -355,9 +479,10 @@ td {
 
 thead th {
   color: var(--muted);
-  font-size: 0.75rem;
+  font: 500 0.625rem/1.6 var(--mono);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.1em;
+  border-bottom-color: var(--edge);
 }
 
 tbody th {
@@ -368,74 +493,109 @@ td .doc p:first-child {
   margin-top: 0;
 }
 
+.rules {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font: 0.75rem/1.4 var(--mono);
+}
+
+.links {
+  margin: 0.25rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.links a {
+  display: inline-block;
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+  font-family: var(--mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
 .cards {
-  margin: 0.5rem 0;
+  margin: 0.25rem 0;
   padding: 0;
   list-style: none;
 }
 
 .cards li {
-  padding: 0.75rem 0;
-  border-top: 1px solid var(--line);
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
 }
 
 .signature,
 .rest {
-  margin: 0.15rem 0;
+  margin: 0.1rem 0;
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   overflow-wrap: anywhere;
 }
 
 details > summary {
   cursor: pointer;
-  padding: 0.25rem 0;
+  padding: 0.2rem 0;
 }
 
 .notice {
-  padding: 0.75rem 1rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--stream);
 }
 
-/* ── forms ─────────────────────────────────────────────────────────────── */
+/* ── controls ──────────────────────────────────────────────────────────── */
 
 button,
 .button,
 input,
 select,
 textarea {
-  font: inherit;
   color: inherit;
+  border-radius: 0;
 }
 
 button,
 .button {
   display: inline-block;
-  min-height: 2.25rem;
-  padding: 0.3rem 0.8rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.7rem;
+  background: var(--raised);
+  border: 1px solid var(--edge);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.6875rem;
+  font-weight: 500;
   cursor: pointer;
 }
 
 button:hover:not(:disabled),
 .button:hover {
-  border-color: var(--muted);
+  border-color: var(--text);
 }
 
 button:disabled {
-  opacity: 0.55;
+  color: var(--muted);
+  border-style: dashed;
   cursor: not-allowed;
 }
 
 button.primary {
-  background: var(--link);
-  border-color: var(--link);
+  background: var(--read);
+  border-color: var(--read);
   color: var(--ground);
-  font-weight: 650;
+  font-weight: 700;
+}
+
+/* The button of a method that changes something says so. */
+button.primary.write {
+  background: var(--write);
+  border-color: var(--write);
+}
+
+button.primary:disabled {
+  background: none;
+  color: var(--muted);
+  border-color: var(--edge);
 }
 
 button.linklike {
@@ -443,50 +603,61 @@ button.linklike {
   padding: 0;
   background: none;
   border: 0;
-  color: var(--link);
   text-decoration: underline;
+  text-decoration-color: var(--edge);
+}
+
+button[aria-selected="true"],
+button[aria-pressed="true"] {
+  border-color: var(--read);
+  color: var(--read);
 }
 
 input[type="text"],
 input[type="search"],
 input[type="password"],
-input[type="number"],
 select,
 textarea {
   width: 100%;
-  min-height: 2.25rem;
-  padding: 0.3rem 0.5rem;
-  background: var(--ground);
-  border: 1px solid var(--muted);
-  border-radius: 6px;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.45rem;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+}
+
+input::placeholder {
+  color: var(--muted);
+  opacity: 1;
 }
 
 input[readonly] {
-  background: var(--panel);
+  color: var(--muted);
 }
 
 textarea {
   display: block;
   resize: vertical;
-  line-height: 1.45;
+  line-height: 1.4;
   tab-size: 2;
 }
 
-textarea[aria-invalid="true"] {
-  border-color: var(--bad);
-  box-shadow: 0 0 0 1px var(--bad);
+[aria-invalid="true"] {
+  border-color: var(--error);
 }
 
 .field {
-  margin: 0.75rem 0;
+  margin: 0.6rem 0;
 }
 
-.field > label,
-legend {
+.field > label:not(.check),
+legend,
+.label {
   display: block;
-  margin-bottom: 0.2rem;
-  font-weight: 650;
-  font-size: 0.875rem;
+  margin-bottom: 0.15rem;
+  font: 500 0.6875rem/1.5 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
 }
 
 .field.grow {
@@ -494,84 +665,252 @@ legend {
 }
 
 .hint {
-  margin: 0.2rem 0 0;
+  margin: 0.15rem 0 0;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
 }
 
 .check {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  font-weight: 400;
+  min-height: 1.5rem;
+  font-size: 0.8125rem;
+}
+
+/* Room around the box, so that a finger meant for it does not hit the field
+   above. */
+.field > .check {
+  margin-top: 0.5rem;
 }
 
 .row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0.5rem 0;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
 }
 
 .row > input[type="text"] {
-  flex: 1 1 8rem;
+  flex: 1 1 7rem;
   width: auto;
 }
 
 fieldset {
-  margin: 1rem 0;
-  padding: 0.5rem 0.75rem;
+  margin: 0.8rem 0;
+  padding: 0.4rem 0.6rem;
   border: 1px solid var(--line);
-  border-radius: 6px;
 }
 
-.console {
-  padding: 0.25rem 1rem 0.75rem;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+.tabs {
+  display: flex;
+  gap: 0;
+  margin: 0.4rem 0 0;
 }
+
+.tabs button {
+  border-right-width: 0;
+}
+
+.tabs button:last-child {
+  border-right-width: 1px;
+}
+
+/* ── the form of a body ────────────────────────────────────────────────── */
+
+.form {
+  margin: 0.4rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.f {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.f-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.5rem;
+}
+
+.f-head label,
+.f-name {
+  font: 500 0.8125rem/1.5 var(--mono);
+}
+
+.f-type {
+  color: var(--muted);
+  font: 0.6875rem/1.5 var(--mono);
+}
+
+.f-control {
+  display: flex;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+
+.f-control > input,
+.f-control > select,
+.f-control > textarea {
+  flex: 1;
+  min-width: 0;
+}
+
+.f-pick {
+  flex: 1;
+  min-width: 0;
+}
+
+.f-pick > .f-control {
+  margin: 0;
+}
+
+/* An item of a list that is a message: its fields, then the button that
+   takes it away. */
+.f-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+
+.f-item > .f-nested,
+.f-item > input {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.f-warn {
+  margin: 0.15rem 0 0;
+  color: var(--stream);
+  font: 0.75rem/1.4 var(--mono);
+}
+
+.f-warn:empty {
+  display: none;
+}
+
+.f-nested {
+  margin: 0.3rem 0 0 0.4rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--edge);
+}
+
+.picker {
+  margin-top: 0.25rem;
+  border: 1px solid var(--read);
+  background: var(--ground);
+}
+
+.picker ul {
+  margin: 0;
+  padding: 0;
+  max-height: 14rem;
+  overflow: auto;
+  list-style: none;
+}
+
+.picker li {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.25rem 0.45rem;
+  border-top: 1px solid var(--line);
+  font: 0.75rem/1.4 var(--mono);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.picker li[aria-selected="true"],
+.picker li:hover {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--read);
+}
+
+.picker .row {
+  margin: 0;
+  padding: 0.3rem 0.45rem;
+}
+
+/* ── console ───────────────────────────────────────────────────────────── */
 
 .verdict {
-  margin: 0.3rem 0;
-  font-size: 0.875rem;
+  margin: 0.25rem 0;
+  font: 0.75rem/1.4 var(--mono);
   min-height: 1.4em;
 }
 
 .verdict.ok {
-  color: var(--good-text);
+  color: var(--ok);
+}
+
+.send {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.send select {
+  flex: 1;
+  min-width: 0;
+}
+
+.verdict.warn {
+  color: var(--stream);
+}
+
+.warnings {
+  margin: 0.25rem 0;
+  padding-left: 1.1rem;
+  color: var(--stream);
+  font: 0.75rem/1.4 var(--mono);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bar .tabs {
+  margin: 0 0 0.3rem;
 }
 
 .verdict.bad {
-  color: var(--bad);
+  color: var(--error);
 }
 
 .target {
-  font-size: 0.9rem;
-}
-
-.response {
-  margin: 1rem 0;
+  font-size: 0.8125rem;
 }
 
 .response:empty {
   display: none;
 }
 
+/* The status of a response, on one line: HTTP 200 OK · ok · 12 ms · 143 B */
 .status {
-  font-size: 0.9rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+  font: 0.75rem/1.5 var(--mono);
 }
 
-.error {
-  margin: 0.5rem 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--bad);
-  border-left-width: 4px;
-  border-radius: 6px;
+.error:not(.badge) {
+  margin: 0.4rem 0;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--error);
+  border-left-width: 3px;
 }
 
 .frames {
   padding-left: 1.5rem;
+  font-size: 0.8125rem;
 }
 
 .history {
@@ -584,33 +923,78 @@ fieldset {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.35rem 0;
+  gap: 0.4rem;
+  padding: 0.3rem 0;
   border-top: 1px solid var(--line);
-  font-size: 0.875rem;
+  font: 0.75rem/1.4 var(--mono);
 }
 
 dialog {
-  width: min(40rem, calc(100vw - 2rem));
+  width: min(42rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
-  padding: 1.25rem 1.5rem;
-  background: var(--ground);
+  padding: 1rem 1.25rem;
+  background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  border: 1px solid var(--read);
 }
 
 dialog::backdrop {
-  background: rgb(0 0 0 / 0.5);
+  background: rgb(0 0 0 / 0.7);
 }
 
 dialog h2 {
   margin-top: 0;
 }
 
-/* ── narrow screens ────────────────────────────────────────────────────── */
+/* The one effect: an error arrives with a jolt. Once, and not at all for
+   someone who asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .glitch {
+    animation: glitch 240ms steps(2, end) 1;
+  }
 
-@media (max-width: 52rem) {
+  @keyframes glitch {
+    0% {
+      text-shadow:
+        2px 0 var(--read),
+        -2px 0 var(--write);
+      transform: translateX(-2px);
+    }
+
+    50% {
+      text-shadow:
+        -2px 0 var(--read),
+        2px 0 var(--write);
+      transform: translateX(2px);
+    }
+
+    100% {
+      text-shadow: none;
+      transform: none;
+    }
+  }
+}
+
+/* ── narrower screens ──────────────────────────────────────────────────── */
+
+@media (max-width: 75rem) {
+  main.split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pane.side {
+    position: static;
+    max-height: none;
+    border-left: 0;
+    border-top: 1px solid var(--edge);
+  }
+
+  .pane {
+    padding-bottom: 2rem;
+  }
+}
+
+@media (max-width: 50rem) {
   #menu {
     display: inline-block;
   }
@@ -636,20 +1020,14 @@ dialog h2 {
     position: static;
     max-height: none;
     border-right: 0;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid var(--edge);
   }
 
   .nav-open nav {
     display: block;
   }
 
-  main {
-    padding: 1rem 1rem 4rem;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
+  .pane {
+    padding: 0.9rem 0.9rem 2rem;
   }
 }

@@ -7,7 +7,8 @@ use std::sync::Arc;
 use buffa_descriptor::generated::descriptor::{
     DescriptorProto, EnumDescriptorProto, FileDescriptorProto,
 };
-use buffa_descriptor::{DescriptorPool, MessageIndex, MethodDescriptor};
+use buffa_descriptor::{DescriptorPool, DynamicMessage, MessageIndex, MethodDescriptor};
+use serde_json::Value;
 
 use crate::error::{Error, Result};
 
@@ -74,6 +75,23 @@ impl Schema {
             descriptor,
         })
     }
+}
+
+/// A custom option, read out of an options message as JSON: the value under
+/// `[package.option]`. It can be read only when the descriptor set carries
+/// `descriptor.proto` and the file that declares the option, which it does
+/// whenever a file imports the latter.
+pub(crate) fn option<O>(
+    pool: &Arc<DescriptorPool>,
+    options: Option<&O>,
+    name: &str,
+) -> Option<Value>
+where
+    O: buffa::Message + buffa::MessageName,
+{
+    let options = DynamicMessage::from_options(Arc::clone(pool), options?)?;
+    let mut json = serde_json::from_str::<Value>(&options.to_json().ok()?).ok()?;
+    json.get_mut(format!("[{name}]")).map(Value::take)
 }
 
 pub(crate) fn text(value: &Option<String>) -> &str {

@@ -9,7 +9,7 @@ use buffa_descriptor::generated::descriptor::{
 };
 use common::{named, parse};
 use serde_json::{Value, json};
-use wirebook_core::{Explorer, Schema, decode, encode, template, validate};
+use wirebook_core::{Explorer, Schema, Variables, decode, encode, template, validate};
 
 #[test]
 fn a_set_that_is_not_one_is_refused() {
@@ -24,7 +24,7 @@ fn a_set_that_is_not_one_is_refused() {
     assert!(
         error
             .to_string()
-            .starts_with("the list of files is not valid: "),
+            .starts_with("the options object is not valid: "),
         "{error}"
     );
 }
@@ -111,7 +111,7 @@ fn files_carry_their_edition_and_whether_they_are_imports() {
     );
 
     // Without roots, nothing is an import.
-    let index = parse(&Explorer::new(common::IMAGE, "[]").unwrap().index());
+    let index = parse(&Explorer::new(common::IMAGE, "{}").unwrap().index());
     assert_eq!(
         named(&index["files"], "google/api/http.proto")["imported"],
         false
@@ -131,7 +131,8 @@ fn fields_are_described_by_their_resolved_features() {
         json!({
             "name": "weight_grams", "jsonName": "weightGrams", "number": 4,
             "cardinality": "singular", "kind": "scalar", "type": "uint64", "mapKey": null,
-            "presence": "explicit", "oneof": null, "doc": "", "deprecated": false
+            "presence": "explicit", "oneof": null, "doc": "", "deprecated": false,
+            "required": false, "rules": [], "example": null, "reference": null
         })
     );
     assert_eq!(field("quantity")["presence"], "implicit");
@@ -274,8 +275,8 @@ fn every_template_is_a_body_the_codec_accepts() {
     let index = parse(&explorer.index());
     for message in index["messages"].as_array().unwrap() {
         let name = message["name"].as_str().unwrap();
-        let body = explorer.template(name).unwrap();
-        let verdict = parse(&explorer.validate(name, &body).unwrap());
+        let body = explorer.template(name, "{}").unwrap();
+        let verdict = parse(&explorer.validate(name, &body, "{}").unwrap());
         assert_eq!(verdict["ok"], true, "{name}: {verdict}\n{body}");
     }
 }
@@ -283,7 +284,7 @@ fn every_template_is_a_body_the_codec_accepts() {
 #[test]
 fn a_template_shows_every_field_in_declaration_order() {
     let schema = common::schema();
-    let widget = template(&schema, "fixture.v1.Widget").unwrap();
+    let widget = template(&schema, "fixture.v1.Widget", &Variables::new()).unwrap();
     assert_eq!(
         serde_json::to_string(&widget).unwrap(),
         concat!(
@@ -297,15 +298,15 @@ fn a_template_shows_every_field_in_declaration_order() {
     );
     // A message inside itself stops at the first level.
     assert_eq!(
-        template(&schema, "fixture.legacy.v1.Tree").unwrap(),
+        template(&schema, "fixture.legacy.v1.Tree", &Variables::new()).unwrap(),
         json!({"label": "", "children": []})
     );
     assert_eq!(
-        template(&schema, "fixture.legacy.v1.Scalars").unwrap()["byFlag"],
+        template(&schema, "fixture.legacy.v1.Scalars", &Variables::new()).unwrap()["byFlag"],
         json!({"false": ""})
     );
     assert_eq!(
-        template(&schema, "fixture.legacy.v1.WellKnown").unwrap(),
+        template(&schema, "fixture.legacy.v1.WellKnown", &Variables::new()).unwrap(),
         json!({
             "timestamp": "1970-01-01T00:00:00Z", "duration": "0s", "fieldMask": "",
             "structValue": {}, "value": null, "listValue": [], "empty": {},
@@ -316,18 +317,24 @@ fn a_template_shows_every_field_in_declaration_order() {
     );
     // Asked for directly, a well-known type gives its own form; an Any, nothing.
     assert_eq!(
-        template(&schema, "google.protobuf.Duration").unwrap(),
+        template(&schema, "google.protobuf.Duration", &Variables::new()).unwrap(),
         json!("0s")
     );
-    assert_eq!(template(&schema, "google.protobuf.Any").unwrap(), json!({}));
     assert_eq!(
-        template(&schema, "no.Such").err().unwrap().to_string(),
+        template(&schema, "google.protobuf.Any", &Variables::new()).unwrap(),
+        json!({})
+    );
+    assert_eq!(
+        template(&schema, "no.Such", &Variables::new())
+            .err()
+            .unwrap()
+            .to_string(),
         "the schema has no message no.Such"
     );
     // For an editor, the façade indents it.
     assert!(
         common::explorer()
-            .template("fixture.v1.GetWidgetRequest")
+            .template("fixture.v1.GetWidgetRequest", "{}")
             .unwrap()
             .contains("{\n  \"id\": \"\"\n}")
     );
@@ -473,13 +480,13 @@ fn a_file_without_a_package_names_its_types_bare() {
         file: vec![file],
         ..Default::default()
     };
-    let explorer = Explorer::new(&set.encode_to_vec(), "[]").unwrap();
+    let explorer = Explorer::new(&set.encode_to_vec(), "{}").unwrap();
     let index = parse(&explorer.index());
     assert_eq!(
         index["messages"],
         json!([{
             "name": "Bare", "file": "bare.proto", "imported": false,
-            "doc": "Bare, with no package.", "deprecated": false, "fields": []
+            "doc": "Bare, with no package.", "deprecated": false, "rules": [], "fields": []
         }])
     );
 }
@@ -506,11 +513,11 @@ fn the_codec_refuses_what_it_cannot_read() {
         "{error}"
     );
 
-    let error = Explorer::new(&[0xff], "[]").err().unwrap().to_string();
+    let error = Explorer::new(&[0xff], "{}").err().unwrap().to_string();
     assert!(
         error.starts_with("the descriptor set is not valid: "),
         "{error}"
     );
-    assert!(common::explorer().template("no.Such").is_err());
-    assert!(common::explorer().validate("no.Such", "{}").is_err());
+    assert!(common::explorer().template("no.Such", "{}").is_err());
+    assert!(common::explorer().validate("no.Such", "{}", "{}").is_err());
 }

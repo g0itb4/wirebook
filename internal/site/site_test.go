@@ -24,8 +24,20 @@ func TestFiles(t *testing.T) {
 			t.Errorf("%s is missing or empty", name)
 		}
 	}
-	if len(files) != 6 {
-		t.Errorf("%d files, want 6", len(files))
+	for _, font := range Fonts {
+		if !bytes.HasPrefix(files[font], []byte("wOF2")) {
+			t.Errorf("%s is not a WOFF2 font", font)
+		}
+		// The style asks for each font by the name it is written under.
+		if !bytes.Contains(files[Style], []byte(`url("`+font+`")`)) {
+			t.Errorf("the style does not load %s", font)
+		}
+	}
+	if !bytes.Contains(files[FontLicence], []byte("SIL Open Font License")) {
+		t.Errorf("%s is not the fonts' licence", FontLicence)
+	}
+	if len(files) != 9 {
+		t.Errorf("%d files, want 9", len(files))
 	}
 	if string(files[Schema]) != "the schema" {
 		t.Errorf("schema = %q", files[Schema])
@@ -40,7 +52,7 @@ func TestFiles(t *testing.T) {
 	if !strings.Contains(index, scriptTag) || !strings.Contains(index, styleTag) {
 		t.Error("a directory site loads its script and style from files")
 	}
-	want := `{"id":"abc123","title":"Widgets \u003c\u0026\u003e \"API\"","roots":["a.proto"],"environments":[],"auth":[],"liveReload":false}`
+	want := `{"id":"abc123","title":"Widgets \u003c\u0026\u003e \"API\"","roots":["a.proto"],"environments":[],"auth":[],"lookups":{},"liveReload":false}`
 	if string(files[Config]) != want {
 		t.Errorf("config = %s, want %s", files[Config], want)
 	}
@@ -48,7 +60,7 @@ func TestFiles(t *testing.T) {
 
 func TestSingleFileHoldsEverything(t *testing.T) {
 	text := string(SingleFile(img, cfg))
-	for _, gone := range []string{scriptTag, styleTag, `src="`, `href="app`} {
+	for _, gone := range []string{scriptTag, styleTag, `src="`, `href="app`, `url("fonts/`} {
 		if strings.Contains(text, gone) {
 			t.Errorf("the file still refers to another one: %s", gone)
 		}
@@ -56,6 +68,9 @@ func TestSingleFileHoldsEverything(t *testing.T) {
 	for _, want := range []string{
 		"<title>Widgets &lt;&amp;&gt; &#34;API&#34;</title>",
 		"<style>",
+		// The fonts are in the file, and so is their notice.
+		"url(\"data:font/woff2;base64,",
+		"SIL Open Font License",
 		`<script type="application/json" id="wirebook-config">{"id":"abc123","title":"Widgets \u003c\u0026\u003e`,
 		`<script type="application/octet-stream" id="wirebook-schema">` + base64.StdEncoding.EncodeToString([]byte("the schema")) + "</script>",
 		`<script type="application/octet-stream" id="wirebook-core">AGFzbQ`,
@@ -130,7 +145,7 @@ func TestAssetPanicsOnABrokenBuild(t *testing.T) {
 
 func TestWrite(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "a", "site")
-	files := map[string][]byte{"index.html": []byte("page"), "core.wasm": {0, 1, 2}}
+	files := map[string][]byte{"index.html": []byte("page"), "core.wasm": {0, 1, 2}, "fonts/a.woff2": []byte("font")}
 	if err := Write(dir, files); err != nil {
 		t.Fatal(err)
 	}
@@ -148,6 +163,14 @@ func TestWrite(t *testing.T) {
 	}
 	if err := Write(filepath.Join(blocker, "site"), files); err == nil {
 		t.Error("Write under a file succeeded")
+	}
+	// A directory in it cannot be made: its name is a file.
+	crowded := t.TempDir()
+	if err := os.WriteFile(filepath.Join(crowded, "fonts"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(crowded, map[string][]byte{"fonts/a.woff2": []byte("font")}); err == nil {
+		t.Error("Write into a file succeeded")
 	}
 	// A file cannot be written: its name is a directory.
 	taken := t.TempDir()
@@ -197,6 +220,19 @@ func TestNothingIsWrittenThroughALink(t *testing.T) {
 	err = Write(link, map[string][]byte{"index.html": []byte("page")})
 	if err == nil || !strings.Contains(err.Error(), "is a symbolic link") {
 		t.Errorf("Write into a linked directory: %v", err)
+	}
+	if entries, _ := os.ReadDir(elsewhere); len(entries) != 0 {
+		t.Errorf("files were written where the link pointed: %v", entries)
+	}
+
+	// A directory inside the site as a link: the fonts would land elsewhere.
+	site := t.TempDir()
+	if err := os.Symlink(elsewhere, filepath.Join(site, "fonts")); err != nil {
+		t.Fatal(err)
+	}
+	err = Write(site, map[string][]byte{"fonts/a.woff2": []byte("font")})
+	if err == nil || !strings.Contains(err.Error(), "is a symbolic link") {
+		t.Errorf("Write into a linked directory of the site: %v", err)
 	}
 	if entries, _ := os.ReadDir(elsewhere); len(entries) != 0 {
 		t.Errorf("files were written where the link pointed: %v", entries)

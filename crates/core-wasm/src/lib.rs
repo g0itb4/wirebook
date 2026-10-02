@@ -15,11 +15,11 @@ pub struct Explorer(wirebook_core::Explorer);
 
 #[wasm_bindgen]
 impl Explorer {
-    /// `image` is the descriptor set; `roots` a JSON array of the file names
-    /// the site documents.
+    /// `image` is the descriptor set; `options` a JSON object with the file
+    /// names the site documents and the lookups its config names.
     #[wasm_bindgen(constructor)]
-    pub fn new(image: &[u8], roots: &str) -> Result<Explorer, JsError> {
-        wirebook_core::Explorer::new(image, roots)
+    pub fn new(image: &[u8], options: &str) -> Result<Explorer, JsError> {
+        wirebook_core::Explorer::new(image, options)
             .map(Explorer)
             .map_err(js)
     }
@@ -32,24 +32,28 @@ impl Explorer {
         self.0.search(query, limit)
     }
 
-    pub fn template(&self, message: &str) -> Result<String, JsError> {
-        self.0.template(message).map_err(js)
+    pub fn template(&self, message: &str, variables: &str) -> Result<String, JsError> {
+        self.0.template(message, variables).map_err(js)
     }
 
-    pub fn validate(&self, message: &str, json: &str) -> Result<String, JsError> {
-        self.0.validate(message, json).map_err(js)
+    pub fn validate(&self, message: &str, json: &str, variables: &str) -> Result<String, JsError> {
+        self.0.validate(message, json, variables).map_err(js)
     }
 
-    pub fn scrub(&self, message: &str, json: &str) -> Result<String, JsError> {
-        self.0.scrub(message, json).map_err(js)
+    pub fn check(&self, message: &str, json: &str, variables: &str) -> Result<String, JsError> {
+        self.0.check(message, json, variables).map_err(js)
+    }
+
+    pub fn scrub(&self, message: &str, json: &str, variables: &str) -> Result<String, JsError> {
+        self.0.scrub(message, json, variables).map_err(js)
     }
 
     pub fn request(&self, spec: &str) -> Result<Request, JsError> {
         self.0.request(spec).map(Request).map_err(js)
     }
 
-    pub fn curl(&self, spec: &str, redact: bool) -> Result<String, JsError> {
-        self.0.curl(spec, redact).map_err(js)
+    pub fn snippet(&self, spec: &str, language: &str, redact: bool) -> Result<String, JsError> {
+        self.0.snippet(spec, language, redact).map_err(js)
     }
 
     pub fn response(&self, expect: &str, status: u16, body: &[u8]) -> Result<String, JsError> {
@@ -58,6 +62,25 @@ impl Explorer {
 
     pub fn frames(&self, expect: &str, buffer: &[u8]) -> Result<String, JsError> {
         self.0.frames(expect, buffer).map_err(js)
+    }
+
+    pub fn lookup_request(
+        &self,
+        field: &str,
+        context: &str,
+        page_token: &str,
+    ) -> Result<String, JsError> {
+        self.0
+            .lookup_request(field, context, page_token)
+            .map_err(js)
+    }
+
+    pub fn lookup_read(&self, field: &str, response: &str) -> Result<String, JsError> {
+        self.0.lookup_read(field, response).map_err(js)
+    }
+
+    pub fn seen(&self, message: &str, response: &str) -> Result<String, JsError> {
+        self.0.seen(message, response).map_err(js)
     }
 }
 

@@ -166,7 +166,17 @@ name = "derived: the embedded site is up to date, and within its size budget"
 language = "system"
 entry = "just dist-check"
 stages = ["pre-push"]
-files = '^(web/|crates/|Cargo\.(toml|lock)$|internal/site/dist/|scripts/size-budget\.ts)'
+files = '^(web/|crates/|Cargo\.(toml|lock)$|internal/site/dist/|scripts/size-budget\.ts|package\.json$|bun\.lock$)'
+pass_filenames = false
+
+# The request as code must be code: each snippet goes to its language's parser.
+[[repos.hooks]]
+id = "snippets"
+name = "derived: the request as code parses in sh, node, python3 and go"
+language = "system"
+entry = "just snippets"
+stages = ["pre-push"]
+files = '^(crates/core/src/(snippet|curl|request|rest|auth)\.rs|scripts/snippet-check\.ts)'
 pass_filenames = false
 
 [[repos.hooks]]

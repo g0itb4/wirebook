@@ -111,14 +111,14 @@ func TestSite(t *testing.T) {
 	}
 	got := file.Site("abc123", []string{"a.proto"}, true).JSON()
 	want := `{"id":"abc123","title":"Widgets","roots":["a.proto"],"environments":[{"name":"local","baseUrl":"http://localhost:8080"}],` +
-		`"auth":[{"scheme":"bearer"},{"scheme":"basic","username":""},{"scheme":"api-key","name":"key","location":"query"}],"liveReload":true}`
+		`"auth":[{"scheme":"bearer"},{"scheme":"basic","username":""},{"scheme":"api-key","name":"key","location":"query"}],"lookups":{},"liveReload":true}`
 	if string(got) != want {
 		t.Errorf("site =\n%s\nwant\n%s", got, want)
 	}
 
 	// Nothing configured: lists, not nulls.
 	empty := File{Title: DefaultTitle}.Site("", nil, false).JSON()
-	if want := `{"id":"","title":"API explorer","roots":[],"environments":[],"auth":[],"liveReload":false}`; string(empty) != want {
+	if want := `{"id":"","title":"API explorer","roots":[],"environments":[],"auth":[],"lookups":{},"liveReload":false}`; string(empty) != want {
 		t.Errorf("empty site = %s, want %s", empty, want)
 	}
 }
@@ -170,6 +170,39 @@ func TestCheckBaseURL(t *testing.T) {
 	for url, want := range cases {
 		if err := CheckBaseURL(url); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("CheckBaseURL(%q) = %v, want an error with %q", url, err, want)
+		}
+	}
+}
+
+func TestVariablesAndLookups(t *testing.T) {
+	file, err := Parse(strings.NewReader(`{
+		"environments": [{"name": "local", "baseUrl": "/", "variables": {"rackId": "r-1", "_n": "7"}}],
+		"lookups": {"acme.v1.Thing.owner_id": "acme.v1.Owners/ListOwners", "acme.v1.Thing.part_id": null}
+	}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := string(file.Site("id", nil, false).JSON())
+	for _, want := range []string{
+		`"variables":{"_n":"7","rackId":"r-1"}`,
+		`"lookups":{"acme.v1.Thing.owner_id":"acme.v1.Owners/ListOwners","acme.v1.Thing.part_id":null}`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("config.json lacks %s:\n%s", want, got)
+		}
+	}
+
+	refused := map[string]string{
+		`{"environments": [{"name": "a", "baseUrl": "/", "variables": {"rack-id": "x"}}]}`:  `the variable name "rack-id" is not a name`,
+		`{"environments": [{"name": "a", "baseUrl": "/", "variables": {"9lives": "x"}}]}`:   `the variable name "9lives" is not a name`,
+		`{"environments": [{"name": "a", "baseUrl": "/", "variables": {"": "x"}}]}`:         `the variable name "" is not a name`,
+		`{"environments": [{"name": "a", "baseUrl": "/", "variables": {"apiToken": "x"}}]}`: `the variable "apiToken" is named like a credential`,
+		`{"environments": [{"name": "a", "baseUrl": "/", "variables": {"PASSWORD": "x"}}]}`: `the variable "PASSWORD" is named like a credential`,
+		`{"environments": [{"name": "a", "baseUrl": "/", "variables": {"n": 5}}]}`:          "parse config:",
+	}
+	for input, want := range refused {
+		if _, err := Parse(strings.NewReader(input)); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Parse(%s) = %v, want an error with %q", input, err, want)
 		}
 	}
 }

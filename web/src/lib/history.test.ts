@@ -213,6 +213,7 @@ describe("export and import", () => {
       baseUrl: "https://evil.example",
       auth: { scheme: "bearer" },
       headers: [],
+      variables: {},
       builtin: false,
     });
     expect(after.get(all[1]!)).toBe("");
@@ -222,23 +223,34 @@ describe("export and import", () => {
 
 describe("what the history keeps of a body", () => {
   test("is the body as typed, when nothing in it is sensitive", () => {
-    expect(keptBody(core(), "fixture.v1.GetWidgetRequest", '{ "id": "w1" }', true)).toBe('{ "id": "w1" }');
+    expect(keptBody(core(), "fixture.v1.GetWidgetRequest", '{ "id": "w1" }', true, {})).toBe('{ "id": "w1" }');
   });
 
   test("is the body without the fields the schema marks as sensitive", () => {
     const typed = '{"username": "ada", "password": "s3cr3t", "previous": {"password": "older"}}';
-    const kept = keptBody(core(), "fixture.v1.Login", typed, true);
+    const kept = keptBody(core(), "fixture.v1.Login", typed, true, {});
     expect(JSON.parse(kept)).toEqual({ username: "ada", previous: {} });
     expect(kept).not.toContain("s3cr3t");
     expect(kept).not.toContain("older");
   });
 
   test("is nothing, for a body the schema cannot read", () => {
-    expect(keptBody(core(), "fixture.v1.Login", '{"password": "s3cr3t"', true)).toBe("");
-    expect(keptBody(core(), "no.Such", '{"password": "s3cr3t"}', true)).toBe("");
+    expect(keptBody(core(), "fixture.v1.Login", '{"password": "s3cr3t"', true, {})).toBe("");
+    expect(keptBody(core(), "no.Such", '{"password": "s3cr3t"}', true, {})).toBe("");
+  });
+
+  test("is kept as typed with its variables, unless a field was taken out", () => {
+    const typed = '{"username": "{{user}}"}';
+    expect(keptBody(core(), "fixture.v1.Login", typed, true, { user: "ada" })).toBe(typed);
+    const secret = '{"username": "{{user}}", "password": "x"}';
+    expect(JSON.parse(keptBody(core(), "fixture.v1.Login", secret, true, { user: "ada" }))).toEqual({
+      username: "ada",
+    });
+    // A variable that is not set: the body could not be sent, and is not kept.
+    expect(keptBody(core(), "fixture.v1.Login", typed, true, {})).toBe("");
   });
 
   test("is nothing, when the person turned it off", () => {
-    expect(keptBody(core(), "fixture.v1.GetWidgetRequest", '{"id": "w1"}', false)).toBe("");
+    expect(keptBody(core(), "fixture.v1.GetWidgetRequest", '{"id": "w1"}', false, {})).toBe("");
   });
 });

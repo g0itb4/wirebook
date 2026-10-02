@@ -74,10 +74,13 @@ func TestBuildWritesADirectory(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	if want := "wrote " + out + ": 4 proto files documented\n"; stdout != want {
+	if want := "wrote " + out + ": 5 proto files documented\n"; stdout != want {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
-	for _, name := range []string{"index.html", "app.js", "app.css", "core.wasm", "schema.binpb", "config.json"} {
+	for _, name := range []string{
+		"index.html", "app.js", "app.css", "core.wasm", "schema.binpb", "config.json",
+		"fonts/jetbrains-mono.woff2", "fonts/space-grotesk.woff2", "fonts/OFL.txt",
+	} {
 		if info, err := os.Stat(filepath.Join(out, name)); err != nil || info.Size() == 0 {
 			t.Errorf("%s: %v", name, err)
 		}

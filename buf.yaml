@@ -1,9 +1,11 @@
 version: v2
 modules:
   - path: testdata/proto
-# google.api.http, for the REST rules of the fixture service.
+# google.api.http, for the REST rules of the fixture services, and
+# protovalidate, whose rules and examples the explorer reads.
 deps:
   - buf.build/googleapis/googleapis
+  - buf.build/bufbuild/protovalidate
 lint:
   use:
     - STANDARD

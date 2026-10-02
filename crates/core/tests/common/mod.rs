@@ -5,20 +5,21 @@ use wirebook_core::{Explorer, Schema};
 
 pub const IMAGE: &[u8] = include_bytes!("../../../../testdata/fixture.binpb");
 
-/// The four fixture files; everything else in the image is an import.
-pub const ROOTS: &str = r#"[
+/// The fixture files; everything else in the image is an import.
+pub const OPTIONS: &str = r#"{"roots": [
+    "fixture/v1/catalog.proto",
     "fixture/v1/editions.proto",
     "fixture/v1/library.proto",
     "fixture/legacy/v1/proto3.proto",
     "fixture/legacy/v1/proto2.proto"
-]"#;
+]}"#;
 
 pub fn schema() -> Schema {
     Schema::load(IMAGE).unwrap()
 }
 
 pub fn explorer() -> Explorer {
-    Explorer::new(IMAGE, ROOTS).unwrap()
+    Explorer::new(IMAGE, OPTIONS).unwrap()
 }
 
 pub fn parse(json: &str) -> Value {

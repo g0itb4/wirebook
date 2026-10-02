@@ -1,6 +1,6 @@
-// Package site assembles the explorer: the page, script, style and core that
-// are built into this binary, with the descriptor set and the config of one
-// repository.
+// Package site assembles the explorer: the page, script, style, fonts and
+// core that are built into this binary, with the descriptor set and the
+// config of one repository.
 package site
 
 import (
@@ -33,6 +33,15 @@ const (
 	Config = "config.json"
 )
 
+// Fonts are the two typefaces of the page, as the style names them. They are
+// files of the site: the page loads nothing from another origin.
+var Fonts = []string{"fonts/jetbrains-mono.woff2", "fonts/space-grotesk.woff2"}
+
+// FontLicence is the licence of the two typefaces, the SIL Open Font License,
+// which asks to be kept with them. The one-file site has their notice in its
+// style.
+const FontLicence = "fonts/OFL.txt"
+
 // What the page says in its source, and what a build replaces it with.
 const (
 	titleTag  = "<title>" + config.DefaultTitle + "</title>"
@@ -41,16 +50,18 @@ const (
 )
 
 // The policy the page declares for itself, so that it holds on any host: the
-// page runs its own script and the core, loads its own style, and calls
-// whatever API it is pointed at. Nothing else runs, loads or is embedded.
+// page runs its own script and the core, loads its own style and fonts, and
+// calls whatever API it is pointed at. Nothing else runs, loads or is
+// embedded.
 //
 // A site in a directory names its files ('self'). A site in one file names
-// them by their hashes, which SingleFile works out.
+// its script and style by their hashes, which SingleFile works out, and
+// holds its fonts in the style (data:).
 const (
 	policyOfFiles = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +
-		"connect-src *; base-uri 'none'; form-action 'none'"
+		"font-src 'self'; connect-src *; base-uri 'none'; form-action 'none'"
 	policyOfOneFile = "default-src 'none'; script-src '%s' 'wasm-unsafe-eval'; style-src '%s'; " +
-		"connect-src *; base-uri 'none'; form-action 'none'"
+		"font-src data:; connect-src *; base-uri 'none'; form-action 'none'"
 )
 
 // hash is the CSP source of an inline element: the SHA-256 of its text.
@@ -78,7 +89,7 @@ func page(cfg config.Site) []byte {
 
 // Files returns a site as the files of a directory, by name.
 func Files(img image.Image, cfg config.Site) map[string][]byte {
-	return map[string][]byte{
+	files := map[string][]byte{
 		Page:   page(cfg),
 		Script: asset(Script),
 		Style:  asset(Style),
@@ -86,6 +97,22 @@ func Files(img image.Image, cfg config.Site) map[string][]byte {
 		Schema: img.Bytes,
 		Config: cfg.JSON(),
 	}
+	for _, font := range Fonts {
+		files[font] = asset(font)
+	}
+	files[FontLicence] = asset(FontLicence)
+	return files
+}
+
+// styleOfOneFile is the style with each font in it, where the style of a
+// directory names a file.
+func styleOfOneFile() []byte {
+	css := asset(Style)
+	for _, font := range Fonts {
+		data := "data:font/woff2;base64," + base64.StdEncoding.EncodeToString(asset(font))
+		css = bytes.Replace(css, []byte(font), []byte(data), 1)
+	}
+	return css
 }
 
 // SingleFile returns a site as one HTML file, with everything in it. It
@@ -97,7 +124,7 @@ func SingleFile(img image.Image, cfg config.Site) []byte {
 	script := bytes.ReplaceAll(asset(Script), []byte("</script"), []byte(`<\/script`))
 	script = bytes.ReplaceAll(script, []byte("<!--"), []byte(`<\!--`))
 
-	css := asset(Style)
+	css := styleOfOneFile()
 	var style bytes.Buffer
 	style.WriteString("<style>")
 	style.Write(css)
@@ -124,20 +151,32 @@ func SingleFile(img image.Image, cfg config.Site) []byte {
 	return bytes.Replace(index, []byte(policyOfFiles), []byte(policy), 1)
 }
 
-// Write puts the files in dir, which it creates.
-//
-// The repository a site is built in may not be one's own. Nothing is written
-// through a symbolic link: not the directory, and not a file in it, which a
-// hostile repository could have pointed at a file elsewhere.
-func Write(dir string, files map[string][]byte) error {
+// directory makes dir, unless it is there. It is not a symbolic link.
+func directory(dir string) error {
 	if info, err := os.Lstat(dir); err == nil && info.Mode()&os.ModeSymlink != 0 {
 		return fmt.Errorf("%s is a symbolic link: wirebook writes into a directory of its own", dir)
 	}
-	if err := os.MkdirAll(dir, 0o750); err != nil {
+	return os.MkdirAll(dir, 0o750)
+}
+
+// Write puts the files in dir, which it creates. A name may hold one
+// directory: "fonts/a.woff2".
+//
+// The repository a site is built in may not be one's own. Nothing is written
+// through a symbolic link: not the directory, not a directory in it, and not
+// a file, which a hostile repository could have pointed at a file elsewhere.
+func Write(dir string, files map[string][]byte) error {
+	if err := directory(dir); err != nil {
 		return err
 	}
 	for name, data := range files {
-		if err := WriteFile(filepath.Join(dir, name), data); err != nil {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if parent := filepath.Dir(path); parent != filepath.Clean(dir) {
+			if err := directory(parent); err != nil {
+				return err
+			}
+		}
+		if err := WriteFile(path, data); err != nil {
 			return err
 		}
 	}

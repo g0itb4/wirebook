@@ -14,6 +14,7 @@ use crate::frames::envelope;
 use crate::rest;
 use crate::schema::Schema;
 use crate::url::{self, Keep, append_query, percent_encode};
+use crate::vars::{self, Variables};
 
 /// What the console asks for.
 #[derive(Debug, Clone, Deserialize)]
@@ -35,6 +36,10 @@ pub struct RequestSpec {
     /// Sent as `Connect-Timeout-Ms`.
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    /// The variables of the environment, for `{{name}}` in the body's
+    /// strings and in header values.
+    #[serde(default)]
+    pub variables: Variables,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -132,7 +137,8 @@ pub fn build(schema: &Schema, spec: &RequestSpec) -> Result<HttpRequest> {
         ));
     }
     let stream = descriptor.is_server_streaming();
-    let message = codec::from_json(schema, descriptor.input(), &spec.body)?;
+    let body = vars::in_body(&spec.body, &spec.variables)?;
+    let message = codec::from_json(schema, descriptor.input(), &body)?;
     let json = codec::to_value(&message)?;
     let base = url::base(&spec.base_url)?;
     // The names come from the descriptor set. buf writes identifiers; a set
@@ -246,7 +252,8 @@ pub fn build(schema: &Schema, spec: &RequestSpec) -> Result<HttpRequest> {
     }
 
     for custom in &spec.headers {
-        let (name, value) = (custom.name.trim(), custom.value.trim());
+        let value = vars::in_text(&custom.value, &spec.variables)?;
+        let (name, value) = (custom.name.trim(), value.trim());
         if !is_token(name) {
             return Err(Error::new(format!("{name:?} is not a header name")));
         }

@@ -1,14 +1,17 @@
-// The method page: what the method is, and the console that calls it.
+// The method page: what the method is, and beside it the console that calls
+// it.
 import { SCHEME_LABEL, isPlaintext, toAuth } from "../lib/environments";
+import { parseBody, stringify } from "../lib/form";
 import { type HistoryEntry, entry, keptBody, list, record } from "../lib/history";
 import { MAX_FRAMES, type Outcome, outcomeLabel, send } from "../lib/send";
-import type { Frame, MethodDoc, RequestSpec, RpcError, ServiceDoc, Transport } from "../lib/types";
+import type { Frame, Language, MethodDoc, RequestSpec, RpcError, ServiceDoc, Transport } from "../lib/types";
 import type { Context } from "./context";
 import { badge, bytes, clip, h, pretty, prose, replace } from "./dom";
-import { fieldsTable, link, methodBadges, short } from "./pages";
+import { form as formView } from "./form";
+import { type Panes, fieldsTable, link, methodBadges, short } from "./pages";
 
 export interface Page {
-  elements: HTMLElement[];
+  panes: Panes;
   /** Stop what the page started: a call in flight, a subscription. */
   dispose(): void;
 }
@@ -18,6 +21,16 @@ interface Choice {
   transport: Transport;
   binding: number;
 }
+
+const LANGUAGES: { id: Language; label: string }[] = [
+  { id: "curl", label: "curl" },
+  { id: "fetch", label: "fetch" },
+  { id: "python", label: "Python" },
+  { id: "go", label: "Go" },
+];
+
+/** The language of the code, kept while the page is open. */
+let language: Language = "curl";
 
 function choices(method: MethodDoc): Choice[] {
   const out: Choice[] = [];
@@ -78,7 +91,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   const options = choices(method);
   let controller: AbortController | undefined;
 
-  const header: HTMLElement[] = [
+  const reference: (HTMLElement | false)[] = [
     h("p", { class: "kind" }, "Method of ", link(service.name)),
     h("h1", null, method.name, " ", methodBadges(method)),
     h(
@@ -101,41 +114,32 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
       ),
     ),
     prose(method.doc, "No description."),
-  ];
-  const reference: HTMLElement[] = [
-    h("h2", null, "Request and response"),
-    h(
-      "details",
-      null,
-      h("summary", null, "Fields of the request, ", h("code", null, short(method.input))),
-      input ? fieldsTable(input, `Fields of ${short(method.input)}`) : null,
-    ),
-    h(
-      "details",
-      null,
-      h("summary", null, "Fields of the response, ", h("code", null, short(method.output))),
-      output ? fieldsTable(output, `Fields of ${short(method.output)}`) : null,
-    ),
+    h("h2", null, "Request · ", short(method.input)),
+    input !== undefined && input.rules.length > 0 && h("p", { class: "rules" }, input.rules.join(" · ")),
+    input !== undefined && fieldsTable(input, `Fields of the request, ${short(method.input)}`),
+    h("h2", null, "Response · ", short(method.output)),
+    output !== undefined && fieldsTable(output, `Fields of the response, ${short(method.output)}`),
   ];
 
-  if (options.length === 0) {
+  if (options.length === 0 || input === undefined) {
     return {
-      elements: [
-        ...header,
-        h("h2", null, "Try it"),
-        h(
-          "p",
-          { class: "notice" },
-          "This method takes a stream of requests. A browser cannot send one, so it cannot be called from this page. Use a Connect or gRPC client.",
-        ),
-        ...reference,
-      ],
+      panes: {
+        reference,
+        side: [
+          h("h2", null, "Console"),
+          h(
+            "p",
+            { class: "notice" },
+            "This method takes a stream of requests. A browser cannot send one, so it cannot be called from this page. Use a Connect or gRPC client.",
+          ),
+        ],
+      },
       dispose() {},
     };
   }
 
-  // ── the form ───────────────────────────────────────────────────────────
-  const example = core.template(method.input);
+  // ── the request ────────────────────────────────────────────────────────
+  const example = (): string => core.template(method.input, context.environment.variables);
   const transport = h(
     "select",
     { id: "transport" },
@@ -143,20 +147,21 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   );
   const body = h("textarea", {
     id: "body",
-    rows: Math.min(24, Math.max(6, example.split("\n").length + 1)),
+    rows: Math.min(22, Math.max(6, example().split("\n").length + 1)),
     spellcheck: "false",
     autocomplete: "off",
     autocapitalize: "off",
+    "aria-label": "Request body, as JSON",
     "aria-describedby": "verdict",
   });
-  body.value = context.drafts.get(method.path) ?? example;
+  body.value = context.drafts.get(method.path) ?? example();
   const verdict = h("p", { id: "verdict", class: "verdict", role: "status" });
+  const warnings = h("ul", { class: "warnings", "aria-label": "Rules of the schema this body does not meet" });
   const timeout = h("input", {
     id: "timeout",
-    type: "number",
-    min: "1",
-    step: "1",
+    type: "text",
     inputmode: "numeric",
+    autocomplete: "off",
     placeholder: "none",
   });
   const timeoutField = h(
@@ -169,16 +174,13 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   const target = h("p", { class: "target" });
   const sendButton = h(
     "button",
-    { type: "submit", class: "primary" },
+    { type: "submit", class: `primary ${method.idempotency === "no_side_effects" ? "" : "write"}`.trim() },
     method.serverStreaming ? "Send and listen" : "Send",
   );
   const cancelButton = h("button", { type: "button", hidden: true }, "Cancel");
-  const withSecret = h("input", { type: "checkbox", id: "with-secret" });
-  const copied = h("span", { class: "muted", role: "status" });
-  const curlOutput = h("pre", { tabindex: "0", "aria-label": "curl command", hidden: true });
-  const preview = h("div", { class: "preview" });
   // Why the request cannot be sent, where the person looks: by the button.
   const blocked = h("p", { class: "bad", role: "status" });
+  const preview = h("div", { class: "preview" });
   const response = h("section", { class: "response", "aria-live": "polite", "aria-label": "Response" });
   const history = h("div", null);
 
@@ -195,10 +197,121 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
       binding: chosen.binding,
       baseUrl: environment.baseUrl,
       headers: environment.headers,
+      variables: environment.variables,
       auth: toAuth(environment.auth, context.secrets.get(environment)),
       timeoutMs: chosen.transport !== "rest" && timeoutMs > 0 ? Math.round(timeoutMs) : null,
       ...overrides,
     };
+  };
+
+  // ── the body, as a form and as JSON ────────────────────────────────────
+  const fields = formView(context, {
+    message: input,
+    value: () => parseBody(body.value),
+    commit: (next, redraw) => {
+      body.value = stringify(next);
+      context.drafts.set(method.path, body.value);
+      if (redraw) fields.draw();
+      refresh();
+    },
+  });
+  const notForm = h(
+    "p",
+    { class: "notice" },
+    "The body is not a JSON object, so it has no form. Edit it as JSON, or reset it to the example.",
+  );
+  const asForm = h("button", { type: "button", "aria-pressed": "false" }, "Form");
+  const asJson = h("button", { type: "button", "aria-pressed": "false" }, "JSON");
+  const formatButton = h("button", { type: "button" }, "Format");
+  const isObject = (): boolean => {
+    const value = parseBody(body.value);
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  };
+  const showView = (): void => {
+    const form = context.view === "form";
+    asForm.setAttribute("aria-pressed", String(form));
+    asJson.setAttribute("aria-pressed", String(!form));
+    const drawn = form && isObject();
+    fields.element.hidden = !drawn;
+    notForm.hidden = !form || drawn;
+    body.hidden = form;
+    formatButton.hidden = form;
+    if (drawn) fields.draw();
+  };
+  const setView = (view: "form" | "json") => (): void => {
+    void context.setView(view);
+    showView();
+    refresh();
+  };
+  asForm.addEventListener("click", setView("form"));
+  asJson.addEventListener("click", setView("json"));
+
+  /** A new body from outside the form: a reset, an earlier call. */
+  const setBody = (text: string, draft: boolean): void => {
+    body.value = text;
+    if (draft) context.drafts.set(method.path, text);
+    else context.drafts.delete(method.path);
+    showView();
+    refresh();
+  };
+
+  // ── the request as code ────────────────────────────────────────────────
+  const withSecret = h("input", { type: "checkbox", id: "with-secret" });
+  const copied = h("span", { class: "muted", role: "status" });
+  const code = h("pre", { tabindex: "0", "aria-label": "The request as code" });
+  const shellHint = h(
+    "p",
+    { class: "hint" },
+    "The command is quoted for sh, bash and zsh. In another shell, check it before you run it.",
+  );
+  const languageButtons = LANGUAGES.map(({ id, label }) =>
+    h(
+      "button",
+      {
+        type: "button",
+        "aria-pressed": "false",
+        "data-language": id,
+        onclick: () => {
+          language = id;
+          copied.textContent = "";
+          showCode();
+        },
+      },
+      label,
+    ),
+  );
+  const snippet = (): string => {
+    const environment = context.environment;
+    // Code runs outside the browser: it goes to the API itself, not to the
+    // proxy, and needs a whole URL.
+    let baseUrl = environment.directUrl ?? environment.baseUrl;
+    if (baseUrl.startsWith("/")) baseUrl = location.origin + baseUrl;
+    return core.snippet(spec({ baseUrl }), language, !withSecret.checked);
+  };
+  const showCode = (): void => {
+    for (const button of languageButtons) {
+      button.setAttribute("aria-pressed", String(button.getAttribute("data-language") === language));
+    }
+    shellHint.hidden = language !== "curl";
+    try {
+      replace(code, h("code", null, snippet()));
+    } catch {
+      replace(code, h("code", { class: "muted" }, "Nothing, until the request can be built."));
+    }
+  };
+  withSecret.addEventListener("change", showCode);
+  const copyCode = async (): Promise<void> => {
+    try {
+      const text = snippet();
+      try {
+        await navigator.clipboard.writeText(text);
+        copied.textContent = withSecret.checked ? "Copied, with the credential in it." : "Copied.";
+      } catch {
+        copied.textContent = "Select the code below to copy it.";
+      }
+    } catch (error) {
+      copied.textContent = `No code: ${error instanceof Error ? error.message : String(error)}.`;
+    }
   };
 
   const refresh = (): void => {
@@ -207,7 +320,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     const needsSecret = scheme !== "none" && context.secrets.get(environment) === "";
     replace(
       target,
-      "Sending to ",
+      "To ",
       h("strong", null, environment.name),
       " (",
       h("code", null, environment.baseUrl),
@@ -228,12 +341,22 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     );
     timeoutField.hidden = choice().transport === "rest";
 
-    const validation = core.validate(method.input, body.value);
+    const validation = core.validate(method.input, body.value, environment.variables);
     body.setAttribute("aria-invalid", String(!validation.ok));
-    verdict.className = validation.ok ? "verdict ok" : "verdict bad";
-    verdict.textContent = validation.ok
-      ? `Valid ${short(method.input)}.`
-      : `Line ${validation.line}, column ${validation.column}: ${validation.message.replace(/ at line \d+ column \d+$/, "")}`;
+    // The rules of the schema are warnings: the server is the one that decides.
+    const violations = validation.ok ? core.check(method.input, body.value, environment.variables) : [];
+    const listed = fields.element.hidden ? violations : fields.warn(violations);
+    replace(
+      warnings,
+      listed.map((violation) => h("li", null, h("code", null, violation.path), ` ${violation.message}`)),
+    );
+    warnings.hidden = listed.length === 0;
+    verdict.className = !validation.ok ? "verdict bad" : violations.length > 0 ? "verdict warn" : "verdict ok";
+    verdict.textContent = !validation.ok
+      ? `Line ${validation.line}, column ${validation.column}: ${validation.message.replace(/ at line \d+ column \d+$/, "")}`
+      : violations.length === 0
+        ? `Valid ${short(method.input)}.`
+        : `Valid ${short(method.input)}. ${violations.length} ${violations.length === 1 ? "rule" : "rules"} of the schema not met: the server may refuse it.`;
 
     // What will be sent, with the credential hidden.
     try {
@@ -261,6 +384,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
       blocked.textContent = `This request cannot be sent: ${error instanceof Error ? error.message : String(error)}.`;
       sendButton.disabled = true;
     }
+    showCode();
   };
 
   const showHistory = async (): Promise<void> => {
@@ -277,12 +401,9 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
       return;
     }
     const use = (past: HistoryEntry) => (): void => {
-      body.value = past.body;
       const at = options.findIndex((o) => o.transport === past.transport && o.binding === past.binding);
       if (at >= 0) transport.value = String(at);
-      context.drafts.set(method.path, body.value);
-      refresh();
-      body.focus();
+      setBody(past.body, true);
     };
     replace(
       history,
@@ -296,7 +417,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
             h(
               "span",
               null,
-              badge(past.outcome, past.outcome === "ok" ? "good" : "warn"),
+              badge(past.outcome, past.outcome === "ok" ? "good" : "error"),
               ` ${time(past.time)} · ${past.environment} · ${past.transport} · ${past.durationMs} ms `,
             ),
             h("button", { type: "button", onclick: use(past) }, "Use this body"),
@@ -306,26 +427,31 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     );
   };
 
-  const showOutcome = (outcome: Outcome): void => {
+  /** One line, as a terminal would say it: HTTP 200 OK · ok · 12 ms · 143 B. */
+  const statusLine = (outcome: Outcome): HTMLElement => {
     const label = outcomeLabel(outcome);
     const good = label === "ok";
+    return h(
+      "p",
+      // The one effect of the page: an error arrives with a jolt.
+      { class: good ? "status" : "status glitch" },
+      badge(
+        outcome.status === 0
+          ? "no response"
+          : `HTTP ${outcome.status}${outcome.statusText ? ` ${outcome.statusText}` : ""}`,
+        good ? "good" : "error",
+      ),
+      badge(label, good ? "good" : "error"),
+      h("span", null, `${Math.round(outcome.durationMs)} ms · ${bytes(outcome.size)}`),
+    );
+  };
+
+  const showOutcome = (outcome: Outcome): void => {
     const error = outcome.parsed?.error;
     replace(
       response,
-      h("h3", null, "Response"),
-      h(
-        "p",
-        { class: "status" },
-        badge(
-          outcome.status === 0
-            ? "no response"
-            : `HTTP ${outcome.status}${outcome.statusText ? ` ${outcome.statusText}` : ""}`,
-          good ? "good" : "warn",
-        ),
-        " ",
-        badge(label, good ? "good" : "warn"),
-        ` ${Math.round(outcome.durationMs)} ms · ${bytes(outcome.size)}`,
-      ),
+      h("h2", null, "Response"),
+      statusLine(outcome),
       outcome.failure && h("p", { class: "error", role: "alert" }, outcome.failure.message),
       error && errorBox(error),
       outcome.framesDropped > 0 &&
@@ -372,6 +498,10 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     );
   };
 
+  const idle = (): void => {
+    replace(response, h("h2", null, "Response"), h("p", { class: "muted" }, "Nothing sent yet."));
+  };
+
   const submit = async (event: Event): Promise<void> => {
     event.preventDefault();
     if (sendButton.disabled || controller) return;
@@ -381,8 +511,8 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     const frames = h("ol", { class: "frames" });
     replace(
       response,
-      h("h3", null, "Response"),
-      h("p", { class: "status" }, method.serverStreaming ? "Listening…" : "Sending…"),
+      h("h2", null, "Response"),
+      h("p", { class: "status" }, badge(method.serverStreaming ? "listening" : "sending", "stream")),
       frames,
     );
     const sent = spec();
@@ -397,15 +527,21 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
           frames.appendChild(frameItem(frame));
           // A stream that never ends must not fill the page.
           if (frames.childElementCount > MAX_FRAMES) frames.firstElementChild?.remove();
+          // An id that went by can be picked later, without a call.
+          if (frame.kind === "message") context.lookups.notice(method.output, frame.message, environment);
         },
       });
+      if (outcome.parsed?.ok === true && outcome.parsed.message !== null) {
+        context.lookups.notice(method.output, outcome.parsed.message, environment);
+      }
       showOutcome(outcome);
       await record(
         context.store,
         entry(
-          // Without the fields the schema marks as sensitive; or without
-          // the body at all, when the person turned that off.
-          { ...sent, body: keptBody(core, method.input, sent.body, context.keepBodies) },
+          // As typed, with its placeholders. Without the fields the schema
+          // marks as sensitive; or without the body at all, when the person
+          // turned that off.
+          { ...sent, body: keptBody(core, method.input, sent.body, context.keepBodies, environment.variables) },
           environment,
           { status: outcome.status, outcome: outcomeLabel(outcome), durationMs: outcome.durationMs },
           Date.now(),
@@ -415,8 +551,8 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     } catch (error) {
       replace(
         response,
-        h("h3", null, "Response"),
-        h("p", { class: "error", role: "alert" }, error instanceof Error ? error.message : String(error)),
+        h("h2", null, "Response"),
+        h("p", { class: "error glitch", role: "alert" }, error instanceof Error ? error.message : String(error)),
       );
     } finally {
       controller = undefined;
@@ -425,120 +561,94 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     }
   };
 
-  const copyCurl = async (): Promise<void> => {
-    const environment = context.environment;
-    // curl runs outside the browser: it goes to the API itself, not to the
-    // proxy, and needs a whole URL.
-    let baseUrl = environment.directUrl ?? environment.baseUrl;
-    if (baseUrl.startsWith("/")) baseUrl = location.origin + baseUrl;
-    try {
-      const command = core.curl(spec({ baseUrl }), !withSecret.checked);
-      curlOutput.textContent = command;
-      curlOutput.hidden = false;
-      try {
-        await navigator.clipboard.writeText(command);
-        copied.textContent = withSecret.checked ? "Copied, with the credential in it." : "Copied.";
-      } catch {
-        copied.textContent = "Select the command below to copy it.";
-      }
-    } catch (error) {
-      copied.textContent = `No command: ${error instanceof Error ? error.message : String(error)}.`;
-    }
-  };
-
   body.addEventListener("input", () => {
     context.drafts.set(method.path, body.value);
     refresh();
   });
-  body.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) form.requestSubmit();
-  });
   transport.addEventListener("change", refresh);
   timeout.addEventListener("input", refresh);
   cancelButton.addEventListener("click", () => controller?.abort());
+  formatButton.addEventListener("click", () => {
+    // When it is not JSON, the verdict already says what is wrong.
+    const value = parseBody(body.value);
+    if (value !== undefined) setBody(stringify(value), true);
+  });
 
   const form = h(
     "form",
     { class: "console", onsubmit: (event: Event) => void submit(event), novalidate: true },
-    h("div", { class: "field" }, h("label", { for: "transport" }, "Send as"), transport),
+    target,
+    // The button is at the top, where it stays in view however long the body is.
     h(
       "div",
       { class: "field" },
-      h("label", { for: "body" }, "Request body, as JSON"),
+      h("label", { for: "transport" }, "Send as"),
+      h("div", { class: "send" }, transport, sendButton, cancelButton),
+    ),
+    blocked,
+    h(
+      "div",
+      { class: "field" },
+      h(
+        "div",
+        { class: "bar" },
+        h("span", { class: "label" }, "Body"),
+        h("div", { class: "tabs", role: "group", "aria-label": "Edit the body as" }, asForm, asJson),
+      ),
+      fields.element,
+      notForm,
       body,
       verdict,
+      warnings,
       h(
         "div",
         { class: "row" },
-        h(
-          "button",
-          {
-            type: "button",
-            onclick: () => {
-              body.value = example;
-              context.drafts.delete(method.path);
-              refresh();
-            },
-          },
-          "Reset to the example",
-        ),
-        h(
-          "button",
-          {
-            type: "button",
-            onclick: () => {
-              try {
-                body.value = pretty(JSON.parse(body.value));
-                context.drafts.set(method.path, body.value);
-                refresh();
-              } catch {
-                /* The verdict already says what is wrong. */
-              }
-            },
-          },
-          "Format",
-        ),
+        h("button", { type: "button", onclick: () => setBody(example(), false) }, "Reset to the example"),
+        formatButton,
       ),
     ),
     timeoutField,
-    target,
-    h(
-      "div",
-      { class: "row" },
-      sendButton,
-      cancelButton,
-      h("span", { class: "hint" }, "Ctrl+Enter or ⌘+Enter in the body sends."),
-    ),
-    blocked,
-    h("details", null, h("summary", null, "What will be sent"), preview),
-    h(
-      "div",
-      { class: "row" },
-      h("button", { type: "button", onclick: () => void copyCurl() }, "Copy as curl"),
-      h("label", { class: "check" }, withSecret, " include the credential"),
-      copied,
-    ),
-    h(
-      "p",
-      { class: "hint" },
-      "The command is quoted for sh, bash and zsh. In another shell, check it before you run it.",
-    ),
-    curlOutput,
+    h("p", { class: "hint" }, "Ctrl+Enter or ⌘+Enter sends."),
   );
+  form.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
 
   const unsubscribe = context.onChange(refresh);
+  showView();
   refresh();
+  idle();
   void showHistory();
 
   return {
-    elements: [
-      ...header,
-      h("h2", null, "Try it"),
-      form,
-      response,
-      h("details", { class: "past" }, h("summary", null, "Earlier calls of this method"), history),
-      ...reference,
-    ],
+    panes: {
+      reference,
+      side: [
+        h("h2", null, "Console"),
+        form,
+        response,
+        h(
+          "details",
+          { class: "code", open: true },
+          h("summary", null, "The request as code"),
+          h("div", { class: "tabs", role: "group", "aria-label": "Language" }, languageButtons),
+          code,
+          h(
+            "div",
+            { class: "row" },
+            h("button", { type: "button", onclick: () => void copyCode() }, "Copy"),
+            h("label", { class: "check" }, withSecret, " include the credential"),
+            copied,
+          ),
+          shellHint,
+        ),
+        h("details", null, h("summary", null, "What will be sent"), preview),
+        h("details", { class: "past" }, h("summary", null, "Earlier calls of this method"), history),
+      ],
+    },
     dispose() {
       controller?.abort();
       unsubscribe();

@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 import { type Page, expect, test } from "@playwright/test";
 
 import { API, API_WITH_CORS, SITE } from "../playwright.config";
-import { CREDENTIALS, GET_WIDGET, TOKEN, configure, open, response, seen, send } from "./helpers";
+import { CREDENTIALS, GET_WIDGET, TOKEN, configure, open, response, seen, send, typeBody } from "./helpers";
 
 const PROXY = "Proxy to 127.0.0.1:18080";
 
@@ -34,6 +34,7 @@ async function host(page: Page, origin: string, dir: string): Promise<void> {
     wasm: "application/wasm",
     json: "application/json",
     binpb: "application/octet-stream",
+    woff2: "font/woff2",
   };
   await page.route(`${origin}/**`, (route) => {
     const name = new URL(route.request().url()).pathname.slice(1) || "index.html";
@@ -79,7 +80,7 @@ test.describe("only the site's own script runs", () => {
     await open(page, GET_WIDGET);
     // The site itself breaks none of its own rules, through a whole call.
     await configure(page, PROXY, CREDENTIALS.bearer!);
-    await page.getByLabel("Request body, as JSON").fill('{"id": "w1"}');
+    await typeBody(page, '{"id": "w1"}');
     await send(page);
     await expect(response(page).getByLabel("Response body")).toBeVisible();
     expect(violations).toEqual([]);
@@ -131,7 +132,7 @@ test.describe("another site cannot put the page in a frame", () => {
 test("an imported file cannot take the place of an environment, or its credential", async ({ page }) => {
   await open(page, GET_WIDGET);
   await configure(page, PROXY, CREDENTIALS.bearer!, { remember: true });
-  await page.getByLabel("Request body, as JSON").fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   await send(page);
   await expect(response(page).getByLabel("Response body")).toBeVisible();
 

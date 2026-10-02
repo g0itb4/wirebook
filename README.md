@@ -15,6 +15,9 @@ authentication the API asks for, and shows what came back.
   schema, and nothing recompiles when a proto changes.
 - **The same bytes as a Go server.** The codec is tested against protobuf-go,
   byte for byte on the wire.
+- **A request without typing.** The body is a form drawn from the schema,
+  with the rules and examples the protos declare. A field that names a
+  resource gets a picker that lists real ids from the API.
 - **No server and no database.** The site is static files, or one HTML file.
   What a visitor keeps (environments, history) stays in their browser.
 
@@ -73,16 +76,22 @@ Optional. `wirebook.json`, next to `buf.yaml`:
 {
   "title": "Widgets API",
   "environments": [
-    { "name": "local", "baseUrl": "http://localhost:8080" },
+    { "name": "local", "baseUrl": "http://localhost:8080", "variables": { "tenant": "acme" } },
     { "name": "staging", "baseUrl": "https://staging.example.com" }
   ],
-  "auth": [{ "scheme": "bearer" }, { "scheme": "api-key", "name": "X-API-Key", "location": "header" }]
+  "auth": [{ "scheme": "bearer" }, { "scheme": "api-key", "name": "X-API-Key", "location": "header" }],
+  "lookups": {
+    "widgets.v1.Order.buyer_id": "widgets.v1.UserService/ListUsers",
+    "widgets.v1.Order.legacy_id": null
+  }
 }
 ```
 
 `auth` lists the schemes the API accepts; the console offers those. Without
-it, all four are offered. The file is committed and the site may be public,
-so it has no field for a credential, and an unknown field is an error.
+it, all four are offered. `variables` and `lookups` are explained under
+[the console](#the-console). The file is committed and the site may be
+public, so it has no field for a credential, a variable named like one is
+refused, and an unknown field is an error.
 
 ## The console
 
@@ -99,9 +108,72 @@ A server-streaming method is sent over Connect and its messages are shown as
 they arrive. A method that takes a stream of requests is documented, but
 cannot be called: a browser cannot send one.
 
-The body is checked against the schema as it is typed, with the line and
-column of what is wrong. "What will be sent" shows the request before it
-goes. "Copy as curl" gives the same request as a command.
+"What will be sent" shows the request before it goes.
+
+### The body: a form, or JSON
+
+The body is one JSON text. The console shows it as a form, one control per
+field, and as JSON; an edit in one is an edit of the other, and the view you
+choose is remembered. The body is checked against the schema as it changes,
+with the line and column of what is wrong.
+
+A new body starts from, in this order: a variable of the environment named
+as the field, the example the proto declares, the zero value.
+
+### Rules and examples from the protos
+
+wirebook reads the `buf.validate` options
+([protovalidate](https://github.com/bufbuild/protovalidate)) of each field.
+The reference pages and the form show them in a few words (`required`,
+`uuid`, `≥ 1 · ≤ 3`, `1 to 40 characters`), with the example when the rule
+has one.
+
+The console checks a body against the rules it can decide without an
+interpreter: required, bounds, lengths, item counts, UUIDs, `in`, `const`,
+`defined_only` and `unique`. A rule that is not met is a **warning**, shown
+at its field. It does not block the request: the server decides, and sending
+what it must refuse is a fair test. Patterns and CEL expressions are shown
+and not evaluated.
+
+### Real ids, picked from the API
+
+A field that names a resource gets a "pick" button. It calls the method that
+lists that resource, in the environment you chose, and offers the ids with
+their names. wirebook finds the list by convention:
+
+1. the field is a string named `<something>_id`;
+2. one message of the package is named by that something (`site_id` finds
+   `Site`, `latest_run_id` finds `EnvelopeRun`) and has an `id` field;
+3. one unary method declared `NO_SIDE_EFFECTS` returns a list of that
+   message.
+
+Where the convention finds nothing, or more than one candidate, there is no
+picker and no guess. `lookups` in `wirebook.json` names the method for a
+field, or `null` to have none; the overview page says when an entry cannot
+be used.
+
+When the list needs a parent (the sites of one feeder), the picker takes it
+from the body being edited, then from the environment's variables, and says
+which is missing. A list that pages has "more".
+
+The call carries your credential, so it is made on the click, never before.
+What it returns stays in the tab's memory: it is not stored, exported or
+kept in the history. Ids seen in the responses of your own calls are offered
+too, without a call.
+
+### Variables
+
+An environment has variables: `{{name}}` in a text value of a body, or in
+the value of a custom header, is replaced when the request is built. A name
+that is not set is an error that names it. Variables are set in
+`wirebook.json` or in the environment dialog. They are stored and exported
+as they are, so they are not for credentials. They cannot reach the base URL
+or the credential: a variable never decides where a request goes.
+
+### The request as code
+
+The same request as curl, `fetch` (JavaScript), Python (`requests`) and Go
+(`net/http`), to copy. It goes to the API itself, not to the proxy.
 
 ### Authentication
 
@@ -127,9 +199,11 @@ A scheme is set per environment and applies to every transport.
   build, an imported file), it has to be typed again.
 - It is never written to the history, to an export, to the page's markup or
   to the site's files.
-- The request preview and the copied curl command show a shell variable
-  (`$TOKEN`, `$BASIC_CREDENTIALS`, `$API_KEY`) in its place, unless "include
-  the credential" is ticked.
+- The request preview and the copied code show a variable (`$TOKEN`,
+  `$BASIC_CREDENTIALS`, `$API_KEY`; in code, read from the environment) in
+  its place, unless "include the credential" is ticked.
+- It is sent with a pick of ids, which is a call like any other: on a click,
+  to a method the schema declares free of side effects.
 - Requests carry no cookie and follow no redirect, and the URL is checked to
   lie under the base URL you chose, whatever the proto file says.
 - `wirebook serve` answers to `localhost` names only, its proxy serves only
@@ -162,23 +236,25 @@ team, commit them as files.
 ## Measured
 
 On the development machine (Apple silicon), 2 October 2026. `just size`,
-`just bench`, `just cover` and `just e2e` reproduce them.
+`just bench`, `just cover`, `just e2e` and `just snippets` reproduce them.
 
 | What | Result |
 |---|---|
-| Site, gzipped: core.wasm + app.js + app.css + index.html | 256 kB (236 + 16 + 3 + 0.5) |
-| Compile the core and load a 152 kB schema | 25 ms |
-| Load and index a schema of 2,000 messages (2.3 MB) | 68 ms |
+| Site, gzipped: core.wasm + app.js + app.css + index.html | 296 kB (269 + 22 + 4.5 + 0.5) |
+| The two fonts (WOFF2, Latin) | 63 kB (40 + 22) |
+| Compile the core and load a 362 kB schema | 30 ms |
+| Load and index a schema of 2,000 messages (2.3 MB) | 77 ms |
 | Search that schema | 5 ms |
 | Validate a body, or build a request | 0.01 ms |
 | Codec against protobuf-go | 15 cases, identical wire bytes and JSON |
 | Line coverage, Rust core | 100% |
 | Statement coverage, Go | 100%, except `internal/cli` at 99% |
 | Line coverage, page logic (`web/src/lib`) | 100% |
-| Browser tests | 41: every transport with every scheme, CORS, streams, storage, and what a hostile page, file or frame cannot do |
+| Browser tests | 54: every transport with every scheme, CORS, streams, storage, the form, the pickers, variables, the code, and what a hostile page, file or frame cannot do |
+| Snippets given to their language's parser (sh, node, python3, go vet) | 160, none refused |
 | Damaged responses fed to the core | 4,000, each answered in words |
 | Known vulnerabilities in dependencies (`just audit`) | none: Go, 35 Rust crates, JavaScript |
-| Accessibility scan (axe, WCAG 2.2 AA) | no violation: desktop, phone, dark |
+| Accessibility scan (axe, WCAG 2.2 AA) | no violation, at 1440, 1000 and 390 px |
 
 The times are in bun's JavaScript engine, not in a browser.
 
@@ -189,18 +265,26 @@ The times are in bun's JavaScript engine, not in a browser.
 - **Edition 2024 is the newest edition supported.**
 - **Client and bidirectional streaming cannot be sent** from a browser.
 - **gRPC and gRPC-Web are not spoken**, only Connect and REST.
-- **protovalidate rules are not shown or checked.** The body is checked for
-  shape, not for the constraints in `buf.validate` options.
+- **protovalidate rules are checked in part.** Patterns and CEL expressions
+  are shown, not evaluated: the core has no regular-expression or CEL
+  engine. The server is the authority on every rule.
+- **A picker needs the convention**, or an entry in `lookups`. There is no
+  support for `google.api.resource_reference`.
+- **Variables fill text values only**: not a number, not the base URL, not a
+  credential.
 - **REST needs the API to transcode** (Vanguard, grpc-gateway, Envoy).
   wirebook builds the request the rule describes; it does not transcode.
 - **The protobuf library, buffa, is before 1.0.** The golden tests are what
   hold it to protobuf-go's behaviour here.
-- **The body is typed as JSON.** There is no generated form.
+- **In the form, a timestamp, a duration and a field mask are typed as
+  text**, and `Any`, `Struct` and `Value` as JSON. A text field left empty
+  is left out of the body; to send an empty text on purpose, edit the JSON.
+- **One look.** The page is dark; it has no light theme.
 
 ## How it is built
 
 ```
-.proto ── buf ──> descriptor set ──> wirebook (Go) ──> index.html app.js app.css
+.proto ── buf ──> descriptor set ──> wirebook (Go) ──> index.html app.js app.css fonts/
                                                        core.wasm schema.binpb config.json
 
 page (TypeScript) ──> core.wasm (Rust): documentation, search, validation,
@@ -214,3 +298,7 @@ what is defended and how.
 ## Licence
 
 MIT. See `LICENSE`.
+
+A built site carries two typefaces, JetBrains Mono and Space Grotesk, under
+the SIL Open Font License 1.1. Their licence is written to `fonts/OFL.txt`
+of every site.

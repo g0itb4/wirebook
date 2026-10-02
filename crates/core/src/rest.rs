@@ -8,13 +8,12 @@
 
 use std::sync::Arc;
 
-use buffa_descriptor::{
-    DescriptorPool, DynamicMessage, FieldKind, MessageIndex, MethodDescriptor, SingularKind,
-};
+use buffa_descriptor::{DescriptorPool, FieldKind, MessageIndex, MethodDescriptor, SingularKind};
 use serde::Serialize;
 use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
+use crate::schema;
 use crate::url::{Keep, percent_encode};
 
 /// One way to call a method over REST.
@@ -39,12 +38,7 @@ pub struct Call {
 /// carries `descriptor.proto` and `google/api/http.proto`, which it does
 /// whenever a file imports `google/api/annotations.proto`.
 pub fn bindings(pool: &Arc<DescriptorPool>, method: &MethodDescriptor) -> Vec<Binding> {
-    let rule = method
-        .options()
-        .and_then(|options| DynamicMessage::from_options(Arc::clone(pool), options))
-        .and_then(|options| options.to_json().ok())
-        .and_then(|json| serde_json::from_str::<Value>(&json).ok())
-        .and_then(|mut options| options.get_mut("[google.api.http]").map(Value::take));
+    let rule = schema::option(pool, method.options(), "google.api.http");
     let mut out = Vec::new();
     if let Some(rule) = rule {
         push(&rule, &mut out);

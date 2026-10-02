@@ -2,7 +2,7 @@
 // a scheme, and headers. The secret of the scheme is kept apart from it, so
 // that nothing that stores or exports an environment can carry one.
 import type { Store } from "./store";
-import type { Auth, AuthSetting, Environment, SiteConfig } from "./types";
+import type { Auth, AuthSetting, Environment, SiteConfig, Variables } from "./types";
 
 export const SCHEMES = ["none", "bearer", "basic", "api-key"] as const;
 export type Scheme = (typeof SCHEMES)[number];
@@ -72,6 +72,26 @@ export function isCredentialHeader(name: string): boolean {
   );
 }
 
+/** A name a variable may have: what can be written `{{name}}`. */
+export function isVariableName(name: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name);
+}
+
+/**
+ * Variables are stored and exported as they are, like headers: one named
+ * like a credential is refused, and so is anything that is not a short text.
+ */
+export function sanitizeVariables(value: unknown): Variables {
+  const out: Variables = {};
+  if (!isRecord(value)) return out;
+  for (const [name, text] of Object.entries(value)) {
+    if (typeof text !== "string" || text.length > 2000) continue;
+    if (!isVariableName(name) || isCredentialHeader(name)) continue;
+    out[name] = text;
+  }
+  return out;
+}
+
 function sanitizeAuth(value: unknown): AuthSetting {
   if (!isRecord(value)) return { scheme: "none" };
   switch (value.scheme) {
@@ -116,6 +136,7 @@ export function sanitizeEnvironment(row: unknown): Environment | null {
     baseUrl,
     auth: sanitizeAuth(row.auth),
     headers: headers.map((header) => ({ name: header.name, value: header.value })),
+    variables: sanitizeVariables(row.variables),
     builtin: id.startsWith("builtin:"),
   };
 }
@@ -142,6 +163,7 @@ export function merge(config: SiteConfig, stored: unknown[]): Environment[] {
       // When the config names schemes, the API needs one: start with it.
       auth: config.auth.length > 0 ? settingFor(first, config) : { scheme: "none" },
       headers: [],
+      variables: sanitizeVariables(env.variables),
       builtin: true,
       ...direct,
     };
@@ -164,6 +186,8 @@ export function destination(environment: Environment): string {
     // another name, is not what the person agreed to either.
     environment.auth,
     environment.headers.map((header) => [header.name, header.value]),
+    // A variable is part of a header's value, and of the body.
+    Object.entries(environment.variables).sort(([a], [b]) => a.localeCompare(b)),
   ]);
 }
 

@@ -4,7 +4,7 @@
 import type { Core } from "./core";
 import { sanitizeEnvironment } from "./environments";
 import type { Row, Store } from "./store";
-import type { Environment, RequestSpec, Transport } from "./types";
+import type { Environment, RequestSpec, Transport, Variables } from "./types";
 
 export const HISTORY_LIMIT = 200;
 
@@ -49,10 +49,12 @@ export function entry(
  * sensitive (`debug_redact`), so a password typed into a login request is
  * sent and not kept; or not at all, when the person turned that off.
  */
-export function keptBody(core: Core, message: string, body: string, keep: boolean): string {
+export function keptBody(core: Core, message: string, body: string, keep: boolean, variables: Variables): string {
   if (!keep) return "";
   try {
-    const scrubbed = core.scrub(message, body);
+    // Scrubbed, the body has its variables replaced; left alone, it is kept
+    // as typed, placeholders and all.
+    const scrubbed = core.scrub(message, body, variables);
     return scrubbed.removed > 0 ? scrubbed.body : body;
   } catch {
     // A body the schema cannot read was not sent either; keep none of it.

@@ -5,9 +5,11 @@ import {
   isBaseUrl,
   isCredentialHeader,
   isPlaintext,
+  isVariableName,
   merge,
   offered,
   sanitizeEnvironment,
+  sanitizeVariables,
   settingFor,
   toAuth,
 } from "./environments";
@@ -55,6 +57,7 @@ describe("the environments of a page", () => {
         baseUrl: "/",
         auth: { scheme: "none" },
         headers: [],
+        variables: {},
         builtin: true,
       },
     ]);
@@ -109,7 +112,7 @@ describe("secrets", () => {
     await secrets.set(local, "s3cr3t", true);
     expect(secrets.isRemembered(local)).toBe(true);
     expect(await store.all("secrets")).toEqual([
-      { id: local.id, secret: "s3cr3t", destination: '["http://api.test","",{"scheme":"none"},[]]' },
+      { id: local.id, secret: "s3cr3t", destination: '["http://api.test","",{"scheme":"none"},[],[]]' },
     ]);
 
     // The next visit finds it.
@@ -264,6 +267,7 @@ describe("an environment from outside this code", () => {
       baseUrl: "https://api.example.com",
       auth: { scheme: "api-key", name: "X-K", location: "query" },
       headers: [{ name: "X-A", value: "b" }],
+      variables: {},
       // Whether it came with the site is read from its id, not taken on trust.
       builtin: false,
     });
@@ -357,4 +361,47 @@ test("a credential over plain http is unencrypted, unless it stays on this machi
   // A name that only starts like a loopback address is not one.
   expect(isPlaintext("http://127.evil.example", page)).toBe(true);
   expect(isPlaintext("http://127.0.0.1.evil.example", page)).toBe(true);
+});
+
+describe("variables", () => {
+  test("are named like identifiers", () => {
+    for (const name of ["a", "_", "rackId", "rack_id2"]) expect(isVariableName(name)).toBe(true);
+    for (const name of ["", "9a", "a-b", "a b", "a.b"]) expect(isVariableName(name)).toBe(false);
+  });
+
+  test("from outside this code, only short texts under plain names are kept", () => {
+    expect(
+      sanitizeVariables({
+        rackId: "r-1",
+        "bad-name": "x",
+        apiToken: "s3cr3t",
+        count: 5,
+        long: "x".repeat(2001),
+        nested: { a: 1 },
+      }),
+    ).toEqual({ rackId: "r-1" });
+    for (const value of [null, "text", [], 5]) expect(sanitizeVariables(value)).toEqual({});
+  });
+
+  test("come with the site's environments, and with stored and imported ones", () => {
+    const site = config({
+      environments: [{ name: "local", baseUrl: "/", variables: { rackId: "r-1", secretKey: "no" } }],
+    });
+    expect(merge(site, [])[0]?.variables).toEqual({ rackId: "r-1" });
+    const stored = { id: "mine", name: "mine", baseUrl: "/", variables: { rackId: "r-2", "x y": "no" } };
+    expect(sanitizeEnvironment(stored)?.variables).toEqual({ rackId: "r-2" });
+  });
+
+  test("are part of what a secret is bound to", async () => {
+    const store = new MemoryStore();
+    const secrets = new Secrets(store);
+    const env = environment({ auth: { scheme: "bearer" }, variables: { rackId: "r-1" } });
+    await secrets.set(env, "s3cr3t", false);
+    expect(secrets.get(env)).toBe("s3cr3t");
+    // The same variables in another order are the same environment.
+    expect(secrets.get({ ...env, variables: { rackId: "r-1" } })).toBe("s3cr3t");
+    // A variable changed outside the dialog changes what would be sent.
+    expect(secrets.get({ ...env, variables: { rackId: "r-2" } })).toBe("");
+    expect(secrets.get({ ...env, variables: {} })).toBe("");
+  });
 });

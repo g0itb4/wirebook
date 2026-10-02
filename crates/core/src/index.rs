@@ -9,10 +9,29 @@ use buffa_descriptor::generated::descriptor::{
 use buffa_descriptor::{
     FieldDescriptor, FieldKind, MessageDescriptor, MethodDescriptor, ScalarType, SingularKind,
 };
-use serde::Serialize;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::reference::{self, Catalog, Reference};
 use crate::rest::{self, Binding};
+use crate::rules;
 use crate::schema::{Schema, qualify, text};
+
+/// What the site's build tells the index.
+#[derive(Debug, Default, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Options {
+    /// The files the site documents; every other file is an import. Empty:
+    /// nothing is.
+    pub roots: Vec<String>,
+    /// The list to pick a field's value from, where the convention finds
+    /// none or the wrong one: `package.Message.field` to
+    /// `package.Service/Method`, or to `null` for no list.
+    pub lookups: BTreeMap<String, Option<String>>,
+}
 
 #[derive(Debug, Default, Serialize)]
 pub struct Index {
@@ -20,6 +39,8 @@ pub struct Index {
     pub services: Vec<ServiceDoc>,
     pub messages: Vec<MessageDoc>,
     pub enums: Vec<EnumDoc>,
+    /// What in the site's config could not be used, and why.
+    pub problems: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -71,6 +92,8 @@ pub struct MessageDoc {
     pub imported: bool,
     pub doc: String,
     pub deprecated: bool,
+    /// The rules of the message as a whole, each in a few words.
+    pub rules: Vec<String>,
     pub fields: Vec<FieldDoc>,
 }
 
@@ -94,6 +117,14 @@ pub struct FieldDoc {
     pub oneof: Option<String>,
     pub doc: String,
     pub deprecated: bool,
+    /// The schema says a request is refused without it.
+    pub required: bool,
+    /// What the schema asks of a value, each rule in a few words.
+    pub rules: Vec<String>,
+    /// A value the schema gives as an example.
+    pub example: Option<Value>,
+    /// How to list the resource the field refers to.
+    pub reference: Option<Reference>,
 }
 
 #[derive(Debug, Serialize)]
@@ -117,15 +148,20 @@ pub struct EnumValueDoc {
     pub deprecated: bool,
 }
 
-/// Build the model. `roots` names the files the site documents; every other
-/// file is marked as imported. With no roots, nothing is.
-pub fn index(schema: &Schema, roots: &[String]) -> Index {
+/// Build the model.
+pub fn index(schema: &Schema, catalog: &Catalog, options: &Options) -> Index {
     let mut out = Index::default();
+    let lookups = RefCell::new(options.lookups.clone());
+    let problems = RefCell::new(Vec::new());
     for file in schema.pool().files() {
         let name = text(&file.name);
         let package = text(&file.package);
+        let roots = &options.roots;
         let scope = Scope {
             schema,
+            catalog,
+            lookups: &lookups,
+            problems: &problems,
             file: name,
             imported: !roots.is_empty() && !roots.iter().any(|root| root == name),
         };
@@ -145,6 +181,13 @@ pub fn index(schema: &Schema, roots: &[String]) -> Index {
             scope.service(service, package, &mut out);
         }
     }
+    out.problems = problems.into_inner();
+    // What is left names no field of the schema.
+    for field in lookups.into_inner().into_keys() {
+        out.problems.push(format!(
+            "the lookup for {field} is not used: the schema has no such field"
+        ));
+    }
     out
 }
 
@@ -160,6 +203,10 @@ fn edition(file: &FileDescriptorProto) -> String {
 
 struct Scope<'a> {
     schema: &'a Schema,
+    catalog: &'a Catalog,
+    /// The lookups of the config that no field has claimed yet.
+    lookups: &'a RefCell<BTreeMap<String, Option<String>>>,
+    problems: &'a RefCell<Vec<String>>,
     file: &'a str,
     imported: bool,
 }
@@ -185,6 +232,9 @@ impl Scope<'_> {
             imported: self.imported,
             doc: self.schema.doc(&name).to_string(),
             deprecated: message.options.deprecated == Some(true),
+            rules: descriptor.map_or_else(Vec::new, |descriptor| {
+                rules::of_message(self.schema.pool(), descriptor)
+            }),
             fields: fields.collect(),
         });
         for nested in &message.nested_type {
@@ -227,7 +277,12 @@ impl Scope<'_> {
             .and_then(|index| descriptor.oneofs().get(usize::from(index)))
             .filter(|oneof| !oneof.is_synthetic())
             .map(|oneof| oneof.name().to_string());
+        let rules = rules::of_field(pool, field);
         FieldDoc {
+            required: rules.required,
+            rules: rules.texts,
+            example: rules.example,
+            reference: self.reference(message, field),
             name: field.name().to_string(),
             json_name: field.json_name().to_string(),
             number: field.number(),
@@ -240,6 +295,25 @@ impl Scope<'_> {
             doc: self.schema.doc(&qualify(message, field.name())).to_string(),
             deprecated: field.options().and_then(|options| options.deprecated) == Some(true),
         }
+    }
+
+    /// The list a field's value is picked from: what the config says, or
+    /// else what the names say.
+    fn reference(&self, message: &str, field: &FieldDescriptor) -> Option<Reference> {
+        let key = qualify(message, field.name());
+        let Some(configured) = self.lookups.borrow_mut().remove(&key) else {
+            return self.catalog.for_field(message, field);
+        };
+        let path = configured?;
+        let found = self.schema.method(&path).ok().and_then(|method| {
+            reference::of_method(self.schema, method.service, method.descriptor)
+        });
+        if found.is_none() {
+            self.problems.borrow_mut().push(format!(
+                "the lookup for {key} is not used: {path} is not a unary method, declared with no side effects, that returns a list of messages with an id"
+            ));
+        }
+        found
     }
 
     fn enumeration(&self, enumeration: &EnumDescriptorProto, parent: &str, out: &mut Index) {

@@ -6,6 +6,8 @@ export interface Index {
   services: ServiceDoc[];
   messages: MessageDoc[];
   enums: EnumDoc[];
+  /** What in the site's config could not be used, and why. */
+  problems: string[];
 }
 
 export interface FileDoc {
@@ -53,7 +55,21 @@ export interface MessageDoc {
   imported: boolean;
   doc: string;
   deprecated: boolean;
+  /** The rules of the message as a whole, each in a few words. */
+  rules: string[];
   fields: FieldDoc[];
+}
+
+/** How to list the resource a field refers to. */
+export interface Reference {
+  resource: string;
+  /** `package.Service/Method`: the list that is called. */
+  method: string;
+  items: string;
+  label: string | null;
+  pageSize: [string, number] | null;
+  pageToken: [string, string] | null;
+  params: { field: string; needed: boolean }[];
 }
 
 export interface FieldDoc {
@@ -68,6 +84,13 @@ export interface FieldDoc {
   oneof: string | null;
   doc: string;
   deprecated: boolean;
+  /** The schema says a request is refused without it. */
+  required: boolean;
+  /** What the schema asks of a value, each rule in a few words. */
+  rules: string[];
+  /** A value the schema gives as an example. */
+  example: unknown;
+  reference: Reference | null;
 }
 
 export interface EnumDoc {
@@ -106,6 +129,22 @@ export interface HeaderSpec {
   value: string;
 }
 
+/** A rule of the schema that a body does not meet. */
+export interface Violation {
+  path: string;
+  message: string;
+}
+
+export type Language = "curl" | "fetch" | "python" | "go";
+
+/** A resource to pick: its id, and a name to know it by. */
+export interface Item {
+  id: string;
+  label: string;
+}
+
+export type Variables = Record<string, string>;
+
 export interface RequestSpec {
   method: string;
   body: string;
@@ -115,6 +154,7 @@ export interface RequestSpec {
   auth: Auth;
   binding: number;
   timeoutMs: number | null;
+  variables: Variables;
 }
 
 export interface Expect {
@@ -167,6 +207,8 @@ export interface Environment {
   baseUrl: string;
   auth: AuthSetting;
   headers: HeaderSpec[];
+  /** Values several requests share, written `{{name}}`. Not secrets. */
+  variables: Variables;
   /** Came with the site, from its config. It can be changed, not removed. */
   builtin: boolean;
   /**
@@ -182,7 +224,9 @@ export interface SiteConfig {
   id: string;
   title: string;
   roots: string[];
-  environments: { name: string; baseUrl: string; directUrl?: string }[];
+  environments: { name: string; baseUrl: string; directUrl?: string; variables?: Variables }[];
+  /** The list a field's value is picked from, where the convention finds none. */
+  lookups: Record<string, string | null>;
   /** The schemes the API accepts. Empty means all four are offered. */
   auth: AuthSetting[];
   /** Set by `wirebook serve`: reload when the protos change. */

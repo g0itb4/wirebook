@@ -64,14 +64,19 @@ fn quote(text: &str) -> String {
     format!("'{}'", text.replace('\'', r"'\''"))
 }
 
+/// A text that ends with the variable of a credential, as the text before
+/// it and the variable: `("Bearer ", "$TOKEN")`.
+pub(crate) fn split_redacted(text: &str) -> Option<(&str, &'static str)> {
+    PLACEHOLDERS
+        .iter()
+        .find_map(|variable| Some((text.strip_suffix(variable)?, *variable)))
+}
+
 /// A text that ends with the shell variable of a credential: the text in
 /// single quotes, then the variable alone in double quotes, where it is
 /// expanded and nothing else is.
 fn quote_redacted(text: &str) -> String {
-    let split = PLACEHOLDERS
-        .iter()
-        .find_map(|variable| Some((text.strip_suffix(variable)?, variable)));
-    match split {
+    match split_redacted(text) {
         Some(("", variable)) => format!("\"{variable}\""),
         Some((literal, variable)) => format!("{}\"{variable}\"", quote(literal)),
         None => quote(text),

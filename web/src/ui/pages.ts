@@ -1,9 +1,15 @@
-// The documentation pages: home, service, message, enum. The method page,
-// with its console, is in console.ts.
+// The reference pages: home, service, message, enum. The method page, with
+// its console, is in console.ts.
 import { href, packages, shortName } from "../lib/route";
 import type { EnumDoc, FieldDoc, Index, MessageDoc, MethodDoc, ServiceDoc } from "../lib/types";
 import type { Context } from "./context";
 import { badge, h, prose } from "./dom";
+
+/** A page: what is read, and what stands beside it. */
+export interface Panes {
+  reference: (HTMLElement | false)[];
+  side?: (HTMLElement | false)[];
+}
 
 let names: (fullName: string) => string = (fullName) => shortName(fullName);
 
@@ -21,6 +27,13 @@ export function link(name: string, label?: string): HTMLElement {
   return h("a", { href: href(name) }, label ?? name);
 }
 
+/** What a method does, in a word and its colour: read, write or stream. */
+export function kindOf(method: MethodDoc): { word: string; letter: string; colour: string } {
+  if (method.clientStreaming || method.serverStreaming) return { word: "stream", letter: "S", colour: "stream" };
+  if (method.idempotency === "no_side_effects") return { word: "read", letter: "R", colour: "read" };
+  return { word: "write", letter: "W", colour: "write" };
+}
+
 /** A field's type, with a link when it is a message or an enum. */
 export function typeOf(field: FieldDoc): HTMLElement {
   const element =
@@ -32,21 +45,27 @@ export function typeOf(field: FieldDoc): HTMLElement {
   return element;
 }
 
+function notes(field: FieldDoc): (HTMLElement | false)[] {
+  // "required" is said by its tag; the rules say the rest.
+  const rules = field.rules.filter((rule) => rule !== "required");
+  return [
+    field.deprecated && badge("deprecated", "warn"),
+    (field.required || field.presence === "required") && badge("required", "write"),
+    field.oneof !== null && badge(`oneof ${field.oneof}`),
+    field.reference !== null && badge(`from ${field.reference.method.split("/")[1]}`, "read"),
+    rules.length > 0 && h("p", { class: "rules" }, rules.join(" · ")),
+    field.example !== null &&
+      field.example !== undefined &&
+      h("p", { class: "rules" }, "e.g. ", h("code", null, String(field.example))),
+  ];
+}
+
 /**
  * A table wider than a phone scrolls inside its own box. The box takes the
  * focus, so the keyboard can scroll it, and says what it holds.
  */
 function scrollBox(label: string): Record<string, string> {
   return { class: "scroll", tabindex: "0", role: "region", "aria-label": `${label}, scrollable` };
-}
-
-function notes(field: FieldDoc): (HTMLElement | false)[] {
-  return [
-    field.deprecated && badge("deprecated", "warn"),
-    field.presence === "required" && badge("required"),
-    field.presence === "explicit" && field.kind !== "message" && badge("optional"),
-    field.oneof !== null && badge(`oneof ${field.oneof}`),
-  ];
 }
 
 export function fieldsTable(message: MessageDoc, caption: string): HTMLElement {
@@ -96,7 +115,7 @@ export function fieldsTable(message: MessageDoc, caption: string): HTMLElement {
 }
 
 export function methodBadges(method: MethodDoc): (HTMLElement | false)[] {
-  const stream =
+  const shape =
     method.clientStreaming && method.serverStreaming
       ? "bidirectional stream"
       : method.clientStreaming
@@ -104,10 +123,11 @@ export function methodBadges(method: MethodDoc): (HTMLElement | false)[] {
         : method.serverStreaming
           ? "server stream"
           : "unary";
+  const kind = kindOf(method);
   return [
-    badge(stream),
-    method.idempotency === "no_side_effects" && badge("no side effects"),
-    method.idempotency === "idempotent" && badge("idempotent"),
+    badge(shape, kind.colour === "stream" ? "stream" : ""),
+    kind.word !== "stream" && badge(kind.word, kind.colour),
+    method.idempotency === "idempotent" && badge("idempotent", "stream"),
     method.deprecated && badge("deprecated", "warn"),
   ];
 }
@@ -135,73 +155,88 @@ function methodList(service: ServiceDoc): HTMLElement {
   );
 }
 
-export function home(context: Context): HTMLElement[] {
+export function home(context: Context): Panes {
   const index: Index = context.core.index;
   const own = packages(index).filter((group) => !group.imported);
   const services = own.flatMap((group) => group.services);
   const files = index.files.filter((file) => !file.imported);
-  return [
-    h("h1", null, context.config.title),
-    services.length === 0
-      ? h("p", { class: "muted" }, "This schema declares no service. Its messages and enums are in the menu.")
-      : h(
-          "p",
-          null,
-          `${services.length} ${services.length === 1 ? "service" : "services"}, `,
-          `${services.reduce((n, service) => n + service.methods.length, 0)} methods. `,
-          "Open a method to read it and to call it.",
-        ),
-    ...services.flatMap((service) => [
-      h("h2", null, link(service.name), service.deprecated && [" ", badge("deprecated", "warn")]),
-      prose(service.doc),
-      methodList(service),
-    ]),
-    h("h2", null, "Files"),
-    h(
-      "div",
-      scrollBox("The proto files this site documents"),
-      h(
-        "table",
-        null,
-        h("caption", null, "The proto files this site documents"),
-        h(
-          "thead",
-          null,
-          h(
-            "tr",
+  return {
+    reference: [
+      h("h1", null, context.config.title),
+      services.length === 0
+        ? h("p", { class: "muted" }, "This schema declares no service. Its messages and enums are in the menu.")
+        : h(
+            "p",
             null,
-            h("th", { scope: "col" }, "File"),
-            h("th", { scope: "col" }, "Package"),
-            h("th", { scope: "col" }, "Syntax"),
+            `${services.length} ${services.length === 1 ? "service" : "services"}, `,
+            `${services.reduce((n, service) => n + service.methods.length, 0)} methods. `,
+            "Open a method to read it and to call it.",
+          ),
+      index.problems.length > 0 &&
+        h(
+          "div",
+          { class: "notice" },
+          h("p", null, "The site's config has entries that are not used:"),
+          h(
+            "ul",
+            null,
+            index.problems.map((problem) => h("li", null, problem)),
           ),
         ),
+      ...services.flatMap((service) => [
+        h("h2", null, link(service.name), service.deprecated && [" ", badge("deprecated", "warn")]),
+        prose(service.doc),
+        methodList(service),
+      ]),
+      h("h2", null, "Files"),
+      h(
+        "div",
+        scrollBox("The proto files this site documents"),
         h(
-          "tbody",
+          "table",
           null,
-          files.map((file) =>
+          h("caption", null, "The proto files this site documents"),
+          h(
+            "thead",
+            null,
             h(
               "tr",
               null,
-              h("th", { scope: "row" }, h("code", null, file.name)),
-              h("td", null, h("code", null, file.package)),
-              h("td", null, /^\d+$/.test(file.edition) ? `edition ${file.edition}` : file.edition),
+              h("th", { scope: "col" }, "File"),
+              h("th", { scope: "col" }, "Package"),
+              h("th", { scope: "col" }, "Syntax"),
+            ),
+          ),
+          h(
+            "tbody",
+            null,
+            files.map((file) =>
+              h(
+                "tr",
+                null,
+                h("th", { scope: "row" }, h("code", null, file.name)),
+                h("td", null, h("code", null, file.package)),
+                h("td", null, /^\d+$/.test(file.edition) ? `edition ${file.edition}` : file.edition),
+              ),
             ),
           ),
         ),
       ),
-    ),
-  ];
+    ],
+  };
 }
 
-export function servicePage(service: ServiceDoc): HTMLElement[] {
-  return [
-    h("p", { class: "kind" }, "Service"),
-    h("h1", null, service.name, service.deprecated && [" ", badge("deprecated", "warn")]),
-    h("p", { class: "muted small" }, h("code", null, service.file)),
-    prose(service.doc, "No description."),
-    h("h2", null, "Methods"),
-    methodList(service),
-  ];
+export function servicePage(service: ServiceDoc): Panes {
+  return {
+    reference: [
+      h("p", { class: "kind" }, "Service"),
+      h("h1", null, service.name, service.deprecated && [" ", badge("deprecated", "warn")]),
+      h("p", { class: "muted small" }, h("code", null, service.file)),
+      prose(service.doc, "No description."),
+      h("h2", null, "Methods"),
+      methodList(service),
+    ],
+  };
 }
 
 /** What uses a type: the methods that take or return it, and the messages with a field of it. */
@@ -215,94 +250,106 @@ function usedBy(index: Index, name: string): string[] {
   return [...methods, ...messages];
 }
 
-export function messagePage(context: Context, message: MessageDoc): HTMLElement[] {
-  const users = usedBy(context.core.index, message.name);
+function users(index: Index, name: string): (HTMLElement | false)[] {
+  const list = usedBy(index, name);
   return [
-    h("p", { class: "kind" }, "Message"),
-    h("h1", null, message.name, message.deprecated && [" ", badge("deprecated", "warn")]),
-    h("p", { class: "muted small" }, h("code", null, message.file)),
-    prose(message.doc, "No description."),
-    h("h2", null, "Fields"),
-    fieldsTable(message, `Fields of ${short(message.name)}`),
-    h("h2", null, "Example"),
-    h("pre", { tabindex: "0", "aria-label": "Example JSON" }, h("code", null, context.core.template(message.name))),
-    users.length > 0 && h("h2", { id: "used-by" }, "Used by"),
-    users.length > 0 &&
+    list.length > 0 && h("h2", { id: "used-by" }, "Used by"),
+    list.length > 0 &&
       h(
         "ul",
-        { "aria-labelledby": "used-by" },
-        users.map((user) => h("li", null, link(user))),
+        { class: "links", "aria-labelledby": "used-by" },
+        list.map((user) => h("li", null, link(user))),
       ),
-  ].filter((element): element is HTMLElement => element !== false);
+  ];
 }
 
-export function enumPage(context: Context, enumeration: EnumDoc): HTMLElement[] {
-  const users = usedBy(context.core.index, enumeration.name);
-  return [
-    h("p", { class: "kind" }, "Enum"),
-    h("h1", null, enumeration.name, enumeration.deprecated && [" ", badge("deprecated", "warn")]),
-    h("p", { class: "muted small" }, h("code", null, enumeration.file)),
-    prose(enumeration.doc, "No description."),
-    h(
-      "p",
-      null,
-      enumeration.closed
-        ? "Closed: a number that is not listed is rejected."
-        : "Open: a number that is not listed is kept as a number.",
-    ),
-    h(
-      "div",
-      scrollBox(`Values of ${short(enumeration.name)}`),
+export function messagePage(context: Context, message: MessageDoc): Panes {
+  return {
+    reference: [
+      h("p", { class: "kind" }, "Message"),
+      h("h1", null, message.name, message.deprecated && [" ", badge("deprecated", "warn")]),
+      h("p", { class: "muted small" }, h("code", null, message.file)),
+      prose(message.doc, "No description."),
+      message.rules.length > 0 && h("p", { class: "rules" }, message.rules.join(" · ")),
+      h("h2", null, "Fields"),
+      fieldsTable(message, `Fields of ${short(message.name)}`),
+      ...users(context.core.index, message.name),
+    ],
+    side: [
+      h("h2", null, "Example"),
       h(
-        "table",
+        "pre",
+        { tabindex: "0", "aria-label": "Example JSON" },
+        h("code", null, context.core.template(message.name, {})),
+      ),
+    ],
+  };
+}
+
+export function enumPage(context: Context, enumeration: EnumDoc): Panes {
+  return {
+    reference: [
+      h("p", { class: "kind" }, "Enum"),
+      h("h1", null, enumeration.name, enumeration.deprecated && [" ", badge("deprecated", "warn")]),
+      h("p", { class: "muted small" }, h("code", null, enumeration.file)),
+      prose(enumeration.doc, "No description."),
+      h(
+        "p",
         null,
-        h("caption", null, `Values of ${short(enumeration.name)}`),
+        enumeration.closed
+          ? "Closed: a number that is not listed is rejected."
+          : "Open: a number that is not listed is kept as a number.",
+      ),
+      h(
+        "div",
+        scrollBox(`Values of ${short(enumeration.name)}`),
         h(
-          "thead",
+          "table",
           null,
+          h("caption", null, `Values of ${short(enumeration.name)}`),
           h(
-            "tr",
+            "thead",
             null,
-            h("th", { scope: "col" }, "Name"),
-            h("th", { scope: "col" }, "Number"),
-            h("th", { scope: "col" }, "Description"),
-          ),
-        ),
-        h(
-          "tbody",
-          null,
-          enumeration.values.map((value) =>
             h(
               "tr",
               null,
-              h("th", { scope: "row" }, h("code", null, value.name)),
-              h("td", null, value.number),
-              h("td", null, value.deprecated && badge("deprecated", "warn"), prose(value.doc)),
+              h("th", { scope: "col" }, "Name"),
+              h("th", { scope: "col" }, "Number"),
+              h("th", { scope: "col" }, "Description"),
+            ),
+          ),
+          h(
+            "tbody",
+            null,
+            enumeration.values.map((value) =>
+              h(
+                "tr",
+                null,
+                h("th", { scope: "row" }, h("code", null, value.name)),
+                h("td", null, value.number),
+                h("td", null, value.deprecated && badge("deprecated", "warn"), prose(value.doc)),
+              ),
             ),
           ),
         ),
       ),
-    ),
-    users.length > 0 && h("h2", { id: "used-by" }, "Used by"),
-    users.length > 0 &&
-      h(
-        "ul",
-        { "aria-labelledby": "used-by" },
-        users.map((user) => h("li", null, link(user))),
-      ),
-  ].filter((element): element is HTMLElement => element !== false);
+      ...users(context.core.index, enumeration.name),
+    ],
+  };
 }
 
-export function missing(target: string): HTMLElement[] {
-  return [
-    h("h1", null, "Not found"),
-    h("p", null, "This schema has nothing named ", h("code", null, target), "."),
-    h(
-      "p",
-      null,
-      "The name may have changed. Search for it, or go back to the ",
-      h("a", { href: "#/" }, "overview"),
-      ".",
-    ),
-  ];
+export function missing(target: string): Panes {
+  return {
+    reference: [
+      h("h1", null, "Not found"),
+      h("p", null, "This schema has nothing named ", h("code", null, target), "."),
+      h(
+        "p",
+        null,
+        "The name may have changed. Search for it, or go back to the ",
+        h("a", { href: "#/" }, "overview"),
+        ".",
+      ),
+    ],
+  };
 }

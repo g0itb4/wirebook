@@ -26,6 +26,11 @@ type File struct {
 	Title        string        `json:"title"`
 	Environments []Environment `json:"environments"`
 	Auth         []Auth        `json:"auth"`
+	// Lookups names the list a field's value is picked from, where the
+	// naming convention finds none: "package.Message.field" to
+	// "package.Service/Method", or to null for no list. The page checks that
+	// the method may be called on its own.
+	Lookups map[string]*string `json:"lookups,omitempty"`
 }
 
 // Environment is a place the API runs.
@@ -37,6 +42,9 @@ type Environment struct {
 	// DirectURL is where the API really is when BaseURL is a proxy. A copied
 	// curl command goes there. `wirebook serve` sets it; the file may not.
 	DirectURL string `json:"directUrl,omitempty"`
+	// Variables are values several requests share, written {{name}} in a
+	// body or a header. They are published with the site: not for secrets.
+	Variables map[string]string `json:"variables,omitempty"`
 }
 
 // Auth is a scheme the API accepts, without a credential.
@@ -52,12 +60,13 @@ type Auth struct {
 // Site is config.json, as the page reads it.
 type Site struct {
 	// ID names the API, so the page keeps its store apart from another's.
-	ID           string        `json:"id"`
-	Title        string        `json:"title"`
-	Roots        []string      `json:"roots"`
-	Environments []Environment `json:"environments"`
-	Auth         []Setting     `json:"auth"`
-	LiveReload   bool          `json:"liveReload"`
+	ID           string             `json:"id"`
+	Title        string             `json:"title"`
+	Roots        []string           `json:"roots"`
+	Environments []Environment      `json:"environments"`
+	Auth         []Setting          `json:"auth"`
+	Lookups      map[string]*string `json:"lookups"`
+	LiveReload   bool               `json:"liveReload"`
 }
 
 // Setting is a scheme as the page offers it: what an environment starts
@@ -138,6 +147,14 @@ func Parse(r io.Reader) (File, error) {
 		if err := CheckBaseURL(env.BaseURL); err != nil {
 			return File{}, fmt.Errorf("environment %q: baseUrl %w", env.Name, err)
 		}
+		for name := range env.Variables {
+			if !identifier(name) {
+				return File{}, fmt.Errorf("environment %q: the variable name %q is not a name: letters, digits and _", env.Name, name)
+			}
+			if credentialName(name) {
+				return File{}, fmt.Errorf("environment %q: the variable %q is named like a credential, and this file is published", env.Name, name)
+			}
+		}
 		names[env.Name] = true
 	}
 
@@ -205,6 +222,29 @@ func CheckBaseURL(url string) error {
 	return nil
 }
 
+// identifier reports whether name can be written {{name}}.
+func identifier(name string) bool {
+	for i, c := range []byte(name) {
+		letter := c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
+		if !letter && (i == 0 || c < '0' || c > '9') {
+			return false
+		}
+	}
+	return name != ""
+}
+
+// credentialName reports whether a name says its value is a secret. The
+// page refuses such a name too, for a header and for a variable.
+func credentialName(name string) bool {
+	lower := strings.ToLower(name)
+	for _, word := range []string{"token", "secret", "passw", "credential", "apikey", "api_key", "cookie", "auth"} {
+		if strings.Contains(lower, word) {
+			return true
+		}
+	}
+	return false
+}
+
 // token reports whether name is an HTTP token (RFC 9110), which is what a
 // header name is made of.
 func token(name string) bool {
@@ -228,6 +268,7 @@ func (f File) Site(id string, roots []string, liveReload bool) Site {
 		Roots:        roots,
 		Environments: f.Environments,
 		Auth:         []Setting{},
+		Lookups:      f.Lookups,
 		LiveReload:   liveReload,
 	}
 	// The page reads a nil slice as null; it wants a list.
@@ -236,6 +277,9 @@ func (f File) Site(id string, roots []string, liveReload bool) Site {
 	}
 	if site.Environments == nil {
 		site.Environments = []Environment{}
+	}
+	if site.Lookups == nil {
+		site.Lookups = map[string]*string{}
 	}
 	for _, auth := range f.Auth {
 		setting := Setting{Scheme: auth.Scheme, Name: auth.Name, Location: auth.Location}

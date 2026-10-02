@@ -47,12 +47,14 @@ func (s *site) set(files map[string][]byte, err error) {
 
 func pages(index string) map[string][]byte {
 	return map[string][]byte{
-		"index.html":   []byte(index),
-		"app.js":       []byte("js"),
-		"app.css":      []byte("css"),
-		"core.wasm":    []byte("wasm"),
-		"schema.binpb": []byte("schema"),
-		"config.json":  []byte("{}"),
+		"index.html":    []byte(index),
+		"app.js":        []byte("js"),
+		"app.css":       []byte("css"),
+		"core.wasm":     []byte("wasm"),
+		"fonts/a.woff2": []byte("font"),
+		"fonts/OFL.txt": []byte("licence"),
+		"schema.binpb":  []byte("schema"),
+		"config.json":   []byte("{}"),
 	}
 }
 
@@ -125,13 +127,15 @@ func TestNewFailsWhenTheFirstBuildFails(t *testing.T) {
 func TestStaticFiles(t *testing.T) {
 	_, listening, _ := start(t, Options{})
 	types := map[string]string{
-		"/":             "text/html; charset=utf-8",
-		"/index.html":   "text/html; charset=utf-8",
-		"/app.js":       "text/javascript; charset=utf-8",
-		"/app.css":      "text/css; charset=utf-8",
-		"/core.wasm":    "application/wasm",
-		"/schema.binpb": "application/octet-stream",
-		"/config.json":  "application/json",
+		"/":              "text/html; charset=utf-8",
+		"/index.html":    "text/html; charset=utf-8",
+		"/app.js":        "text/javascript; charset=utf-8",
+		"/app.css":       "text/css; charset=utf-8",
+		"/core.wasm":     "application/wasm",
+		"/fonts/a.woff2": "font/woff2",
+		"/fonts/OFL.txt": "text/plain; charset=utf-8",
+		"/schema.binpb":  "application/octet-stream",
+		"/config.json":   "application/json",
 	}
 	for path, want := range types {
 		response, body := get(t, listening.URL+path, nil)
@@ -145,7 +149,7 @@ func TestStaticFiles(t *testing.T) {
 			t.Errorf("%s: headers = %v", path, response.Header)
 		}
 		csp := response.Header.Get("Content-Security-Policy")
-		for _, want := range []string{"default-src 'none'", "script-src 'self' 'wasm-unsafe-eval'", "frame-ancestors 'none'"} {
+		for _, want := range []string{"default-src 'none'", "script-src 'self' 'wasm-unsafe-eval'", "font-src 'self'", "frame-ancestors 'none'"} {
 			if !strings.Contains(csp, want) {
 				t.Errorf("%s: Content-Security-Policy = %q, want %s in it", path, csp, want)
 			}

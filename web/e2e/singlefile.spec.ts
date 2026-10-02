@@ -7,7 +7,7 @@ import { pathToFileURL } from "node:url";
 
 import { expect, test } from "@playwright/test";
 
-import { CREDENTIALS, configure } from "./helpers";
+import { CREDENTIALS, configure, typeBody } from "./helpers";
 
 test("one file holds the page, the core and the schema", async ({ page }) => {
   const file = join(mkdtempSync(join(tmpdir(), "wirebook-")), "explorer.html");
@@ -30,9 +30,9 @@ test("one file holds the page, the core and the schema", async ({ page }) => {
 
   // The core works: it validates, and builds a request.
   await page.goto(`${pathToFileURL(file).href}#/fixture.v1.WidgetService/GetWidget`);
-  await page.getByLabel("Request body, as JSON").fill('{"id": 5}');
+  await typeBody(page, '{"id": 5}');
   await expect(page.locator("#verdict")).toContainText("Line 1, column");
-  await page.getByLabel("Request body, as JSON").fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   // The config says the API takes a bearer token; none is set yet.
   await expect(
     page.getByText("This request cannot be sent: the bearer token must be one word, and not empty."),

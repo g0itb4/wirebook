@@ -1,7 +1,15 @@
 // The dialog where an environment is set: where requests go, how they
 // authenticate, which headers they carry. Also the page's data: export,
 // import, clear.
-import { SCHEME_LABEL, type Scheme, isBaseUrl, isCredentialHeader, offered, settingFor } from "../lib/environments";
+import {
+  SCHEME_LABEL,
+  type Scheme,
+  isBaseUrl,
+  isCredentialHeader,
+  isVariableName,
+  offered,
+  settingFor,
+} from "../lib/environments";
 import { exportData, importData } from "../lib/history";
 import type { AuthSetting, Environment, HeaderSpec } from "../lib/types";
 import type { Context } from "./context";
@@ -19,6 +27,8 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
   const element = h("dialog", { "aria-labelledby": "env-title" }, form);
   let editing: Environment;
   let headers: HeaderSpec[] = [];
+  /** The variables, as rows: a name may be half typed. */
+  let variables: HeaderSpec[] = [];
   let message = "";
 
   const blank = (): Environment => ({
@@ -27,6 +37,7 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
     baseUrl: "",
     auth: { scheme: "none" },
     headers: [],
+    variables: {},
     builtin: false,
   });
 
@@ -157,65 +168,71 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
     });
     showScheme();
 
-    const headerRows = h("div", { class: "headers" });
-    const showHeaders = (): void => {
-      replace(
-        headerRows,
-        headers.map((header, i) =>
-          h(
-            "div",
-            { class: "row" },
-            h("input", {
-              type: "text",
-              "aria-label": `Name of header ${i + 1}`,
-              placeholder: "Name",
-              value: header.name,
-              autocomplete: "off",
-              spellcheck: "false",
-              oninput: (e: Event) => {
-                header.name = (e.target as HTMLInputElement).value;
-              },
-            }),
-            h("input", {
-              type: "text",
-              "aria-label": `Value of header ${i + 1}`,
-              placeholder: "Value",
-              value: header.value,
-              autocomplete: "off",
-              spellcheck: "false",
-              oninput: (e: Event) => {
-                header.value = (e.target as HTMLInputElement).value;
-              },
-            }),
+    /** Rows of a name and a value, with a button to add one. */
+    const pairs = (rows: HeaderSpec[], what: string): HTMLElement => {
+      const box = h("div", { class: "headers" });
+      const show = (): void => {
+        replace(
+          box,
+          rows.map((row, i) =>
             h(
-              "button",
-              {
-                type: "button",
-                "aria-label": `Remove header ${i + 1}`,
-                onclick: () => {
-                  headers.splice(i, 1);
-                  showHeaders();
+              "div",
+              { class: "row" },
+              h("input", {
+                type: "text",
+                "aria-label": `Name of ${what} ${i + 1}`,
+                placeholder: "Name",
+                value: row.name,
+                autocomplete: "off",
+                spellcheck: "false",
+                oninput: (e: Event) => {
+                  row.name = (e.target as HTMLInputElement).value;
                 },
-              },
-              "Remove",
+              }),
+              h("input", {
+                type: "text",
+                "aria-label": `Value of ${what} ${i + 1}`,
+                placeholder: "Value",
+                value: row.value,
+                autocomplete: "off",
+                spellcheck: "false",
+                oninput: (e: Event) => {
+                  row.value = (e.target as HTMLInputElement).value;
+                },
+              }),
+              h(
+                "button",
+                {
+                  type: "button",
+                  "aria-label": `Remove ${what} ${i + 1}`,
+                  onclick: () => {
+                    rows.splice(i, 1);
+                    show();
+                  },
+                },
+                "Remove",
+              ),
             ),
           ),
-        ),
-        h(
-          "button",
-          {
-            type: "button",
-            onclick: () => {
-              headers.push({ name: "", value: "" });
-              showHeaders();
-              (headerRows.querySelector(".row:last-of-type input") as HTMLInputElement | null)?.focus();
+          h(
+            "button",
+            {
+              type: "button",
+              onclick: () => {
+                rows.push({ name: "", value: "" });
+                show();
+                (box.querySelector(".row:last-of-type input") as HTMLInputElement | null)?.focus();
+              },
             },
-          },
-          "Add a header",
-        ),
-      );
+            `Add a ${what}`,
+          ),
+        );
+      };
+      show();
+      return box;
     };
-    showHeaders();
+    const headerRows = pairs(headers, "header");
+    const variableRows = pairs(variables, "variable");
 
     const status = h(
       "p",
@@ -259,12 +276,26 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
           `!The header ${credential.name.trim()} is a credential. Set it under Authentication: headers are stored and exported, credentials are not.`,
         );
       }
+      const named = variables.filter((variable) => variable.name.trim() !== "");
+      const badName = named.find((variable) => !isVariableName(variable.name.trim()));
+      if (badName) {
+        return say(
+          `!The variable ${badName.name.trim()} cannot be written {{…}}: use letters, digits and _, and start with a letter.`,
+        );
+      }
+      const hidden = named.find((variable) => isCredentialHeader(variable.name));
+      if (hidden) {
+        return say(
+          `!The variable ${hidden.name.trim()} is named like a credential. Set it under Authentication: variables are stored and exported, credentials are not.`,
+        );
+      }
       const saved: Environment = {
         ...editing,
         name: name.value.trim(),
         baseUrl: baseUrl.value.trim(),
         auth: auth(),
         headers: headers.filter((header) => header.name.trim() !== ""),
+        variables: Object.fromEntries(named.map((variable) => [variable.name.trim(), variable.value])),
       };
       await context.store.put("environments", saved);
       await context.secrets.set(saved, saved.auth.scheme === "none" ? "" : secret.value, remember.checked);
@@ -285,6 +316,11 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
     const withBodies = h("input", { type: "checkbox", id: "env-export-bodies" });
     const keepBodies = h("input", { type: "checkbox", id: "env-keep-bodies", checked: context.keepBodies });
     keepBodies.addEventListener("change", () => void context.setKeepBodies(keepBodies.checked));
+    const shortcuts = h("input", { type: "checkbox", id: "env-shortcuts", checked: context.shortcuts });
+    shortcuts.addEventListener(
+      "change",
+      () => void context.setShortcuts(shortcuts.checked).then(() => context.changed()),
+    );
     const download = async (): Promise<void> => {
       const data = await exportData(context.store, { bodies: withBodies.checked });
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -361,6 +397,17 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
         h("p", { class: "hint" }, "Stored in this browser and included in an export. Not the place for a credential."),
         headerRows,
       ),
+      h(
+        "fieldset",
+        null,
+        h("legend", null, "Variables"),
+        h(
+          "p",
+          { class: "hint" },
+          "Written {{name}} in a body's text values and in header values. A field named as a variable starts with it. Stored and exported: not the place for a credential.",
+        ),
+        variableRows,
+      ),
       status,
       h(
         "div",
@@ -382,6 +429,7 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
           { class: "hint" },
           "Environments and the history of calls are kept in this browser only. A request body is kept without the fields its schema marks as sensitive; what else you typed into it is kept as typed.",
         ),
+        h("p", null, h("label", { class: "check" }, shortcuts, " Keyboard shortcuts of one key ( / for search)")),
         h("p", null, h("label", { class: "check" }, keepBodies, " Keep request bodies in the history")),
         h("p", null, h("label", { class: "check" }, withBodies, " Include request bodies in an export")),
         h(
@@ -410,6 +458,7 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
   const edit = (environment: Environment): void => {
     editing = structuredClone(environment);
     headers = structuredClone(environment.headers);
+    variables = Object.entries(environment.variables).map(([name, value]) => ({ name, value }));
     render();
   };
 

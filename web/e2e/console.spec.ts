@@ -8,15 +8,17 @@ import {
   PASSWORD,
   TOKEN,
   WATCH,
+  body,
   configure,
   open,
   response,
   seen,
   send,
+  stored,
+  typeBody,
 } from "./helpers";
 
 const PROXY = "Proxy to 127.0.0.1:18080";
-const body = (page: import("@playwright/test").Page) => page.getByLabel("Request body, as JSON");
 
 test.describe("every scheme reaches the API over every transport", () => {
   const transports = [
@@ -50,7 +52,7 @@ test.describe("every scheme reaches the API over every transport", () => {
         await test.step(transport.name, async () => {
           await open(page, transport.method);
           await page.getByLabel("Send as").selectOption({ label: transport.option });
-          await body(page).fill(transport.method === WATCH ? '{"colour": "COLOUR_RED"}' : '{"id": "w1"}');
+          await typeBody(page, transport.method === WATCH ? '{"colour": "COLOUR_RED"}' : '{"id": "w1"}');
           const before = (await seen(page)).count;
           await send(page);
           if (transport.method === WATCH) {
@@ -71,7 +73,7 @@ test.describe("every scheme reaches the API over every transport", () => {
 test("without a credential, and with a wrong one, the API's refusal is shown", async ({ page }) => {
   await open(page, GET_WIDGET);
   await configure(page, PROXY, { scheme: "none" });
-  await body(page).fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   await send(page);
   await expect(response(page).getByText("HTTP 401")).toBeVisible();
   await expect(response(page)).toContainText("unauthenticated: send a bearer token, basic credentials or an API key");
@@ -90,7 +92,7 @@ test("without a credential, and with a wrong one, the API's refusal is shown", a
 test("an error's detail is decoded with the schema", async ({ page }) => {
   await open(page, GET_WIDGET);
   await configure(page, PROXY, CREDENTIALS.bearer!);
-  await body(page).fill('{"id": "nope"}');
+  await typeBody(page, '{"id": "nope"}');
   await send(page);
   await expect(response(page).getByText("HTTP 404")).toBeVisible();
   await expect(response(page)).toContainText('not_found: no widget "nope"');
@@ -100,7 +102,7 @@ test("an error's detail is decoded with the schema", async ({ page }) => {
 
 test("the API's CORS rules decide a direct call; the proxy does not need them", async ({ page }) => {
   await open(page, GET_WIDGET);
-  await body(page).fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
 
   // An API that never heard of this origin: the browser hides its answer.
   await configure(page, "Direct, without CORS", CREDENTIALS.bearer!);
@@ -129,7 +131,7 @@ test("a body that is not valid is explained, and cannot be sent", async ({ page 
   const verdict = page.locator("#verdict");
   await expect(verdict).toHaveText("Valid GetWidgetRequest.");
 
-  await body(page).fill('{\n  "nope": 1\n}');
+  await typeBody(page, '{\n  "nope": 1\n}');
   await expect(verdict).toContainText('Line 2, column 8: unknown field "nope"');
   await expect(body(page)).toHaveAttribute("aria-invalid", "true");
   await expect(page.getByRole("button", { name: "Send" })).toBeDisabled();
@@ -138,7 +140,7 @@ test("a body that is not valid is explained, and cannot be sent", async ({ page 
   await expect(body(page)).toHaveValue('{\n  "id": ""\n}');
   await expect(page.getByRole("button", { name: "Send" })).toBeEnabled();
 
-  await body(page).fill('{"id":"w1"}');
+  await typeBody(page, '{"id":"w1"}');
   await page.getByRole("button", { name: "Format" }).click();
   await expect(body(page)).toHaveValue('{\n  "id": "w1"\n}');
   // The keyboard sends too.
@@ -149,7 +151,8 @@ test("a body that is not valid is explained, and cannot be sent", async ({ page 
 test("REST puts the fields in the path and the query", async ({ page }) => {
   await open(page, "#/fixture.v1.LibraryService/ListBooks");
   await configure(page, PROXY, CREDENTIALS.bearer!);
-  await body(page).fill(
+  await typeBody(
+    page,
     JSON.stringify({ parent: "shelves/1", pageSize: 10, filter: { familyName: "Le Guin" }, genres: ["sf", "fantasy"] }),
   );
   await page.getByLabel("Send as").selectOption({ label: "REST · GET /v1/{parent=shelves/*}/books" });
@@ -165,7 +168,7 @@ test("REST puts the fields in the path and the query", async ({ page }) => {
   expect((await seen(page)).path).toBe("/v1/shelves/1/books");
 
   // A field the path needs, and the body lacks.
-  await body(page).fill("{}");
+  await typeBody(page, "{}");
   await expect(
     page.getByText("This request cannot be sent: the field parent has no value in the request body."),
   ).toBeVisible();
@@ -175,45 +178,24 @@ test("REST puts the fields in the path and the query", async ({ page }) => {
 test("a stream arrives frame by frame, and can end with an error", async ({ page }) => {
   await open(page, WATCH);
   await configure(page, PROXY, CREDENTIALS.bearer!);
-  await body(page).fill('{"colour": "COLOUR_RED"}');
+  await typeBody(page, '{"colour": "COLOUR_RED"}');
   await send(page);
   // The first frame is on the page while the stream is still open.
-  await expect(response(page).getByText("Listening…")).toBeVisible();
+  await expect(response(page).getByText("listening")).toBeVisible();
   await expect(response(page).locator(".frames > li").first()).toContainText('"id": "a"');
   await expect(response(page).getByText("End of the stream.")).toBeVisible();
   await expect(response(page).locator(".frames > li")).toHaveCount(4);
 
-  await body(page).fill('{"colour": "COLOUR_GREEN"}');
+  await typeBody(page, '{"colour": "COLOUR_GREEN"}');
   await send(page);
   await expect(response(page)).toContainText("unavailable: the feed went away");
   await expect(response(page).locator(".frames > li")).toHaveCount(2);
 });
 
-test("the copied curl command hides the credential unless asked", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await open(page, GET_WIDGET);
-  await configure(page, PROXY, CREDENTIALS.bearer!);
-  await body(page).fill('{"id": "w1"}');
-
-  await page.getByRole("button", { name: "Copy as curl" }).click();
-  const command = page.getByLabel("curl command");
-  // To the API itself, not to the proxy: curl has no CORS to get around.
-  await expect(command).toContainText(`curl --globoff -X POST '${API}/fixture.v1.WidgetService/GetWidget'`);
-  await expect(command).toContainText(`-H 'Authorization: Bearer '"$TOKEN"`);
-  await expect(command).not.toContainText(TOKEN);
-  await expect(page.getByText("Copied.", { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(await command.textContent());
-
-  await page.getByLabel("include the credential").check();
-  await page.getByRole("button", { name: "Copy as curl" }).click();
-  await expect(command).toContainText(`-H 'Authorization: Bearer ${TOKEN}'`);
-  await expect(page.getByText("Copied, with the credential in it.")).toBeVisible();
-});
-
 test("what will be sent is shown with the credential hidden", async ({ page }) => {
   await open(page, GET_WIDGET);
   await configure(page, PROXY, CREDENTIALS["api-key-query"]!);
-  await body(page).fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   await page.getByLabel("Send as").selectOption({ label: "Connect · GET" });
   await page.getByText("What will be sent").click();
   const request = page.getByLabel("Request", { exact: true });
@@ -226,35 +208,10 @@ test("what will be sent is shown with the credential hidden", async ({ page }) =
   await expect(request).not.toContainText("YWRhOmxvdmVsYWNl");
 });
 
-/** Everything the page has stored, as text. */
-async function stored(page: import("@playwright/test").Page): Promise<string> {
-  return page.evaluate(async () => {
-    const out: unknown[] = [JSON.stringify(localStorage), JSON.stringify(sessionStorage), document.cookie];
-    for (const { name } of await indexedDB.databases()) {
-      const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const request = indexedDB.open(name!);
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-      for (const store of db.objectStoreNames) {
-        out.push(
-          await new Promise((resolve, reject) => {
-            const request = db.transaction(store).objectStore(store).getAll();
-            request.onsuccess = () => resolve(request.result);
-            request.onerror = () => reject(request.error);
-          }),
-        );
-      }
-      db.close();
-    }
-    return JSON.stringify(out);
-  });
-}
-
 test("the history survives a reload; a credential does only when asked", async ({ page }) => {
   await open(page, GET_WIDGET);
   await configure(page, PROXY, CREDENTIALS.bearer!);
-  await body(page).fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   await send(page);
   await expect(response(page).getByLabel("Response body")).toBeVisible();
 
@@ -282,7 +239,7 @@ test("the history survives a reload; a credential does only when asked", async (
   expect(await stored(page)).toContain(PASSWORD);
   await page.reload();
   await expect(page.getByText("No credential is set yet.")).toHaveCount(0);
-  await body(page).fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   await send(page);
   await expect(response(page).getByLabel("Response body")).toContainText('"id": "w1"');
 
@@ -322,7 +279,7 @@ test("an environment can be added, exported without its secret, and removed", as
   // The header goes with every request.
   await page.getByText("What will be sent").click();
   await expect(page.getByLabel("Request", { exact: true })).toContainText("X-Trace: e2e");
-  await body(page).fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   await send(page);
   await expect(response(page).getByLabel("Response body")).toContainText('"id": "w1"');
 
@@ -361,7 +318,7 @@ test("the history can be told not to keep request bodies", async ({ page }) => {
   await dialog.getByLabel("Keep request bodies in the history").uncheck();
   await dialog.getByRole("button", { name: "Close" }).click();
 
-  await body(page).fill('{"id": "w1-not-kept"}');
+  await typeBody(page, '{"id": "w1-not-kept"}');
   await send(page);
   await expect(response(page)).toContainText("not_found");
   const kept = await stored(page);
@@ -377,7 +334,7 @@ test("the history can be told not to keep request bodies", async ({ page }) => {
 test("a secret is never in the page's markup", async ({ page }) => {
   await open(page, GET_WIDGET);
   await configure(page, PROXY, CREDENTIALS.basic!);
-  await body(page).fill('{"id": "w1"}');
+  await typeBody(page, '{"id": "w1"}');
   await send(page);
   await expect(response(page).getByLabel("Response body")).toBeVisible();
   await page.getByText("What will be sent").click();

@@ -65,15 +65,21 @@ test("the navigation groups by package, the site's own first", () => {
     ["fixture.legacy.v1", false],
     ["fixture.v1", false],
     ["google.protobuf", true],
+    ["buf.validate", true],
     ["google.api", true],
   ]);
   const own = groups[1]!;
   expect(own.services.map((service) => service.name)).toEqual([
+    "fixture.v1.CatalogService",
     "fixture.v1.WidgetService",
     "fixture.v1.LibraryService",
   ]);
   expect(own.messages.some((message) => message.name === "fixture.v1.Widget.Part")).toBe(true);
-  expect(own.enums.map((enumeration) => enumeration.name)).toEqual(["fixture.v1.Colour", "fixture.v1.Size"]);
+  expect(own.enums.map((enumeration) => enumeration.name)).toEqual([
+    "fixture.v1.GadgetKind",
+    "fixture.v1.Colour",
+    "fixture.v1.Size",
+  ]);
 });
 
 test("a name is shortened by the package that declares it", () => {
