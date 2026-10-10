@@ -40,8 +40,10 @@ const BUDGET: Record<string, number> = {
   "app.css": 6_000,
   // Raised once, from 480, for the preload of the core, the schema, the
   // config and the two fonts, and for the shell the page shows while the
-  // core loads. Measured: 452 before, 625 after.
-  "index.html": 700,
+  // core loads. Measured: 452 before, 625 after. Raised again, from 700,
+  // for the icon drawn in the page, the description and the OpenGraph tags:
+  // 625 before, 902 after.
+  "index.html": 1_000,
 };
 
 // Bytes as they are: a WOFF2 font is compressed already.

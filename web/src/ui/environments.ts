@@ -376,37 +376,49 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
       ),
       h(
         "div",
-        { class: "field" },
-        h("label", { for: "env-name" }, "Name"),
-        name,
-        editing.builtin && h("p", { class: "hint" }, "This environment comes with the site."),
-      ),
-      h(
-        "div",
-        { class: "field" },
-        h("label", { for: "env-url" }, "Base URL"),
-        baseUrl,
-        h("p", { class: "hint" }, "Where the API listens. A path such as /proxy stays on this origin."),
+        { class: "grid2" },
+        h(
+          "div",
+          { class: "field" },
+          h("label", { for: "env-name" }, "Name"),
+          name,
+          editing.builtin && h("p", { class: "hint" }, "This environment comes with the site."),
+        ),
+        h(
+          "div",
+          { class: "field" },
+          h("label", { for: "env-url" }, "Base URL"),
+          baseUrl,
+          h("p", { class: "hint" }, "Where the API listens. A path such as /proxy stays on this origin."),
+        ),
       ),
       h("div", { class: "field" }, h("label", { for: "env-scheme" }, "Authentication"), scheme),
       schemeFields,
       h(
-        "fieldset",
-        null,
-        h("legend", null, "Headers sent with every request"),
-        h("p", { class: "hint" }, "Stored in this browser and included in an export. Not the place for a credential."),
-        headerRows,
-      ),
-      h(
-        "fieldset",
-        null,
-        h("legend", null, "Variables"),
+        "div",
+        { class: "grid2" },
         h(
-          "p",
-          { class: "hint" },
-          "Written {{name}} in a body's text values and in header values. A field named as a variable starts with it. Stored and exported: not the place for a credential.",
+          "fieldset",
+          null,
+          h("legend", null, "Headers sent with every request"),
+          h(
+            "p",
+            { class: "hint" },
+            "Stored in this browser and included in an export. Not the place for a credential.",
+          ),
+          headerRows,
         ),
-        variableRows,
+        h(
+          "fieldset",
+          null,
+          h("legend", null, "Variables"),
+          h(
+            "p",
+            { class: "hint" },
+            "Written {{name}} in a body's text values and in header values. A field named as a variable starts with it. Stored and exported: not the place for a credential.",
+          ),
+          variableRows,
+        ),
       ),
       status,
       h(
@@ -420,10 +432,11 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
           editing.builtin ? "Reset to the site's settings" : "Delete",
         ),
       ),
+      h("hr"),
       h(
-        "fieldset",
-        null,
-        h("legend", null, "This browser's data"),
+        "section",
+        { class: "browser", "aria-labelledby": "browser-head" },
+        h("h3", { id: "browser-head" }, "This browser"),
         h(
           "p",
           { class: "hint" },
@@ -451,6 +464,7 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
             "button",
             {
               type: "button",
+              class: "ghost",
               onclick: () =>
                 void context.store.clear("history").then(() => {
                   context.changed();

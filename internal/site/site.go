@@ -44,10 +44,12 @@ const FontLicence = "fonts/OFL.txt"
 
 // What the page says in its source, and what a build replaces it with.
 const (
-	titleTag  = "<title>" + config.DefaultTitle + "</title>"
-	brandTag  = `<a class="brand" href="#/">` + config.DefaultTitle + `</a>`
-	styleTag  = `<link rel="stylesheet" href="app.css" />`
-	scriptTag = `<script type="module" src="app.js"></script>`
+	titleTag       = "<title>" + config.DefaultTitle + "</title>"
+	brandTag       = `<a class="brand" href="#/">` + config.DefaultTitle + `</a>`
+	descriptionTag = `<meta name="description" content="` + config.DefaultTitle + `" />`
+	ogTitleTag     = `<meta property="og:title" content="` + config.DefaultTitle + `" />`
+	styleTag       = `<link rel="stylesheet" href="app.css" />`
+	scriptTag      = `<script type="module" src="app.js"></script>`
 )
 
 // The page's head asks for its files before its script runs. A site in one
@@ -68,12 +70,13 @@ var preloadTags = []string{
 //
 // A site in a directory names its files ('self'). A site in one file names
 // its script and style by their hashes, which SingleFile works out, and
-// holds its fonts in the style (data:).
+// holds its fonts in the style (data:). The one image is the icon, drawn in
+// the page itself (img-src data:): nothing is fetched for it.
 const (
 	policyOfFiles = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +
-		"font-src 'self'; connect-src *; base-uri 'none'; form-action 'none'"
+		"font-src 'self'; img-src data:; connect-src *; base-uri 'none'; form-action 'none'"
 	policyOfOneFile = "default-src 'none'; script-src '%s' 'wasm-unsafe-eval'; style-src '%s'; " +
-		"font-src data:; connect-src *; base-uri 'none'; form-action 'none'"
+		"font-src data:; img-src data:; connect-src *; base-uri 'none'; form-action 'none'"
 )
 
 // hash is the CSP source of an inline element: the SHA-256 of its text.
@@ -92,13 +95,21 @@ func asset(name string) []byte {
 	return data
 }
 
-// page is the embedded page with the site's title, in its head and on the
-// brand the page shows while the core loads. A test holds the page to having
-// each tag once.
+// page is the embedded page with the site's title: in its head, where a link
+// to it is previewed, and on the brand the page shows while the core loads. A
+// test holds the page to having each tag once.
 func page(cfg config.Site) []byte {
 	title := html.EscapeString(cfg.Title)
-	index := bytes.Replace(asset(Page), []byte(titleTag), []byte("<title>"+title+"</title>"), 1)
-	return bytes.Replace(index, []byte(brandTag), []byte(`<a class="brand" href="#/">`+title+`</a>`), 1)
+	index := asset(Page)
+	for _, tag := range [][2]string{
+		{titleTag, "<title>" + title + "</title>"},
+		{brandTag, `<a class="brand" href="#/">` + title + `</a>`},
+		{descriptionTag, `<meta name="description" content="` + title + `: every method documented, and a console that calls it." />`},
+		{ogTitleTag, `<meta property="og:title" content="` + title + `" />`},
+	} {
+		index = bytes.Replace(index, []byte(tag[0]), []byte(tag[1]), 1)
+	}
+	return index
 }
 
 // Files returns a site as the files of a directory, by name.

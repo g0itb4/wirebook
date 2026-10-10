@@ -7,9 +7,18 @@
     <meta name="referrer" content="no-referrer" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; connect-src *; base-uri 'none'; form-action 'none'"
+      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; font-src 'self'; img-src data:; connect-src *; base-uri 'none'; form-action 'none'"
     />
     <title>API explorer</title>
+    <meta name="description" content="API explorer" />
+    <meta property="og:title" content="API explorer" />
+    <meta property="og:description" content="Every method, documented; and a console that calls it." />
+    <meta property="og:type" content="website" />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><rect width='24' height='24' rx='5' fill='%230a0c0f'/><path d='M8 7l-4 5 4 5M16 7l4 5-4 5M6 12h12' fill='none' stroke='%2345dcf2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>"
+    />
     <link rel="stylesheet" href="app.css" />
     <link rel="modulepreload" href="app.js" />
     <link rel="preload" href="core.wasm" as="fetch" crossorigin />

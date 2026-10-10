@@ -124,7 +124,8 @@ unless asked. `crates/core/src/scrub.rs`.
   `eval`, nothing loaded from elsewhere. A directory names its files; the
   single file names its script and style by hash. `internal/site/site.go`.
 - The fonts are files of the site (`font-src 'self'`), or inside the single
-  file (`font-src data:`). No font, style or script comes from another
+  file (`font-src data:`). The one image, the tab's icon, is drawn in the
+  page (`img-src data:`). No font, style, script or image comes from another
   origin, so no other server learns who reads the documentation.
 - The page refuses to run in a frame of another site, with or without the
   header that forbids it. `web/src/lib/guard.ts`.

@@ -52,6 +52,15 @@ func TestFiles(t *testing.T) {
 	if !strings.Contains(index, `<a class="brand" href="#/">Widgets &lt;&amp;&gt; &#34;API&#34;</a>`) {
 		t.Errorf("the brand shown while loading is not the title, escaped:\n%s", index)
 	}
+	for _, meta := range []string{
+		`<meta name="description" content="Widgets &lt;&amp;&gt; &#34;API&#34;: every method documented, and a console that calls it." />`,
+		`<meta property="og:title" content="Widgets &lt;&amp;&gt; &#34;API&#34;" />`,
+		`href="data:image/svg+xml,`,
+	} {
+		if !strings.Contains(index, meta) {
+			t.Errorf("the page's head lacks %s", meta)
+		}
+	}
 	if !strings.Contains(index, scriptTag) || !strings.Contains(index, styleTag) {
 		t.Error("a directory site loads its script and style from files")
 	}
@@ -130,7 +139,10 @@ func TestEachSiteDeclaresItsPolicy(t *testing.T) {
 func TestPageNeedsItsMarkers(t *testing.T) {
 	// The page is read from the build. Each tag must be there, once.
 	source := string(asset(Page))
-	tags := append([]string{titleTag, brandTag, styleTag, scriptTag, `content="` + policyOfFiles + `"`}, preloadTags...)
+	tags := append(
+		[]string{titleTag, brandTag, descriptionTag, ogTitleTag, styleTag, scriptTag, `content="` + policyOfFiles + `"`},
+		preloadTags...,
+	)
 	for _, tag := range tags {
 		if strings.Count(source, tag) != 1 {
 			t.Errorf("the embedded page has %d of %s, want 1", strings.Count(source, tag), tag)

@@ -1533,7 +1533,7 @@ details.card > :last-child {
 }
 
 dialog {
-  width: min(42rem, calc(100vw - 2rem));
+  width: min(52rem, calc(100vw - 2rem));
   max-height: calc(100vh - 2rem);
   padding: var(--s5) var(--s6);
   background: var(--panel);
@@ -1548,6 +1548,32 @@ dialog::backdrop {
 
 dialog h2 {
   margin-top: 0;
+}
+
+/* Two fields, or two groups, side by side where there is room. */
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0 var(--s4);
+  align-items: start;
+}
+
+.grid2 > fieldset {
+  min-width: 0;
+}
+
+hr {
+  margin: var(--s5) 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.browser h3 {
+  margin: 0 0 var(--s2);
+}
+
+.browser p {
+  margin: var(--s2) 0;
 }
 
 /* The one effect: an error arrives with a jolt. Once, and not at all for

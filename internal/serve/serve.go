@@ -205,7 +205,7 @@ var contentTypes = map[string]string{
 // and calls any API it is pointed at. Nothing else: no inline script, no
 // frame, no plugin.
 const contentSecurityPolicy = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; " +
-	"font-src 'self'; connect-src *; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	"font-src 'self'; img-src data:; connect-src *; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 
 func (s *Server) static(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/")
