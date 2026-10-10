@@ -11,8 +11,9 @@ bin/
 internal/testserver/gen/
 web/src/gen/
 
-# The site that `wirebook build` writes by default.
+# The site that `wirebook build` writes by default, and the example `just example` builds.
 /site/
+/out/
 
 # Test and coverage output.
 coverage/

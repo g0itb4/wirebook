@@ -88,6 +88,8 @@ jobs:
       - run: just bench
       # The request as code, read by sh, node, python3 and go.
       - run: just snippets
+      # The example site builds from its own buf module.
+      - run: just example
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:

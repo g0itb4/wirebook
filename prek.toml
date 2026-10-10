@@ -51,7 +51,7 @@ id = "proto-fmt"
 name = "style: buf format"
 language = "system"
 entry = "just fmt-check-proto"
-files = '^testdata/proto/.*\.proto$'
+files = '^(testdata/proto|examples)/.*\.proto$'
 pass_filenames = false
 
 [[repos.hooks]]
@@ -86,7 +86,7 @@ id = "proto-lint"
 name = "lint: buf lint"
 language = "system"
 entry = "just lint-proto"
-files = '^(testdata/proto/.*\.proto|buf\.yaml)$'
+files = '^((testdata/proto|examples)/.*\.proto|.*buf\.yaml)$'
 pass_filenames = false
 
 [[repos.hooks]]

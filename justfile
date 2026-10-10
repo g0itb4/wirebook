@@ -111,6 +111,20 @@ size:
 build: dist
     go build -o bin/wirebook ./cmd/wirebook
 
+# ── example ──────────────────────────────────────────────────────────────────
+
+# ConnectRPC's Eliza, the site wirebook.pigface.lol serves. The fixture under
+# testdata stays the test corpus; this is what a visitor sees.
+#
+# build the Eliza example as a site, into out/eliza
+example: build
+    rm -rf out/eliza
+    bin/wirebook build --dir examples/eliza --out out/eliza --buf "bunx buf"
+
+# serve the Eliza example while editing it, with the proxy to demo.connectrpc.com
+example-serve: build
+    bin/wirebook serve --dir examples/eliza --buf "bunx buf" --target https://demo.connectrpc.com
+
 # ── tests ────────────────────────────────────────────────────────────────────
 
 # the fixture API and the wirebook binary, for the end-to-end tests
@@ -154,6 +168,7 @@ fmt:
     cargo fmt --all
     golangci-lint fmt
     bunx buf format -w
+    bunx buf format -w examples/eliza
     bunx prettier --write --log-level warn .
 
 # fail on a formatting diff, without rewriting (the pre-commit hooks)
@@ -170,6 +185,7 @@ fmt-check-go:
 [private]
 fmt-check-proto:
     bunx buf format --diff --exit-code
+    bunx buf format --diff --exit-code examples/eliza
 
 [private]
 fmt-check-web:
@@ -189,9 +205,10 @@ lint-rust:
 lint-go:
     golangci-lint run
 
-# buf lint on the fixture protos: naming, packages, and the STANDARD rule set
+# buf lint on the fixture and the example protos: naming, packages, and the STANDARD rule set
 lint-proto:
     bunx buf lint
+    bunx buf lint examples/eliza
 
 # The page imports the glue that wasm-bindgen writes, which is not committed.
 [private]

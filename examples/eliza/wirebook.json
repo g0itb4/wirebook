@@ -1,0 +1,4 @@
+{
+  "title": "Eliza",
+  "environments": [{ "name": "demo.connectrpc.com", "baseUrl": "https://demo.connectrpc.com" }]
+}

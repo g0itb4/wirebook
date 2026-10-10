@@ -43,6 +43,7 @@ hooks, CI and a developer's terminal run the same command.
 | `internal/testserver`, `cmd/testserver` | The fixture API of the browser tests. Never imported by what ships | Go |
 | `internal/site/dist` | The built site. Committed; see below | built |
 | `testdata/proto` | Fixture protos: edition 2024, edition 2023, proto3, proto2 | proto |
+| `examples/eliza` | The example site: ConnectRPC's Eliza protos and their `wirebook.json`. `just example` builds it | proto, JSON |
 
 ### Where a decision lives
 
