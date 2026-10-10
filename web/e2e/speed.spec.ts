@@ -34,22 +34,24 @@ test("the files come down together, the core compiles as it arrives, and the she
   );
 
   // Each file once: a preload that did not match its fetch would show twice.
+  // The build's files carry a hash in their name; the site's own do not.
   const names = resources.map((resource) => resource.name).sort();
-  expect(names).toEqual(
-    [
-      "/app.css",
-      "/app.js",
-      "/config.json",
-      "/core.wasm",
-      "/fonts/jetbrains-mono.woff2",
-      "/fonts/space-grotesk.woff2",
-      "/schema.binpb",
-    ].sort(),
-  );
+  expect(names).toHaveLength(7);
+  for (const pattern of [
+    /^\/app\.[0-9a-f]{8}\.css$/,
+    /^\/app\.[0-9a-f]{8}\.js$/,
+    /^\/config\.json$/,
+    /^\/core\.[0-9a-f]{8}\.wasm$/,
+    /^\/fonts\/jetbrains-mono\.[0-9a-f]{8}\.woff2$/,
+    /^\/fonts\/space-grotesk\.[0-9a-f]{8}\.woff2$/,
+    /^\/schema\.binpb$/,
+  ]) {
+    expect(names.filter((name) => pattern.test(name))).toHaveLength(1);
+  }
   // The core was asked for by the page's head, with the script, not after it ran.
-  const start = (name: string) => resources.find((resource) => resource.name === name)!.start;
-  expect(start("/core.wasm") - start("/app.js")).toBeLessThan(50);
-  expect(start("/schema.binpb") - start("/app.js")).toBeLessThan(50);
+  const start = (pattern: RegExp) => resources.find((resource) => pattern.test(resource.name))!.start;
+  expect(start(/\.wasm$/) - start(/\.js$/)).toBeLessThan(50);
+  expect(start(/schema\.binpb$/) - start(/\.js$/)).toBeLessThan(50);
   // The shell is painted before the core is here.
   expect(paint["first-contentful-paint"]).toBeLessThan(m.core!);
   // Time budgets, ten times what a laptop takes.

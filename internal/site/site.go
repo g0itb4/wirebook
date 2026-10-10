@@ -8,10 +8,14 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"html"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/g0itb4/wirebook/internal/config"
 	"github.com/g0itb4/wirebook/internal/image"
@@ -112,18 +116,69 @@ func page(cfg config.Site) []byte {
 	return index
 }
 
+// In a directory, the files of the build carry a hash of their bytes in
+// their name: app.1a2b3c4d.js. A host may then tell a browser to keep them
+// for good, and a page from a new build never meets a file of an old one.
+// The schema and the config are the site's own, named plainly: they change
+// with every build, and are served so that a browser asks again.
+//
+// The style names the fonts, so the fonts are named first and the style is
+// hashed with their new names in it.
+type build struct {
+	names map[string]string
+	style []byte
+}
+
+var hashedBuild = sync.OnceValue(func() build {
+	named := func(name string, data []byte) string {
+		sum := sha256.Sum256(data)
+		ext := path.Ext(name)
+		return strings.TrimSuffix(name, ext) + "." + hex.EncodeToString(sum[:4]) + ext
+	}
+	names := map[string]string{}
+	style := asset(Style)
+	for _, font := range Fonts {
+		names[font] = named(font, asset(font))
+		style = bytes.Replace(style, []byte(font), []byte(names[font]), 1)
+	}
+	names[Style] = named(Style, style)
+	names[Script] = named(Script, asset(Script))
+	names[Core] = named(Core, asset(Core))
+	return build{names, style}
+})
+
+// Name is what a file of the build is called in a directory site: the
+// source name with a hash in it. A name that is not the build's is its own.
+func Name(source string) string {
+	if hashed, ok := hashedBuild().names[source]; ok {
+		return hashed
+	}
+	return source
+}
+
+// pageOfFiles is the page of a directory site: it asks for the build's files
+// by their hashed names.
+func pageOfFiles(cfg config.Site) []byte {
+	index := page(cfg)
+	for source, hashed := range hashedBuild().names {
+		index = bytes.ReplaceAll(index, []byte(`="`+source+`"`), []byte(`="`+hashed+`"`))
+	}
+	return index
+}
+
 // Files returns a site as the files of a directory, by name.
 func Files(img image.Image, cfg config.Site) map[string][]byte {
+	build := hashedBuild()
 	files := map[string][]byte{
-		Page:   page(cfg),
-		Script: asset(Script),
-		Style:  asset(Style),
-		Core:   asset(Core),
-		Schema: img.Bytes,
-		Config: cfg.JSON(),
+		Page:                pageOfFiles(cfg),
+		build.names[Script]: asset(Script),
+		build.names[Style]:  build.style,
+		build.names[Core]:   asset(Core),
+		Schema:              img.Bytes,
+		Config:              cfg.JSON(),
 	}
 	for _, font := range Fonts {
-		files[font] = asset(font)
+		files[build.names[font]] = asset(font)
 	}
 	files[FontLicence] = asset(FontLicence)
 	return files

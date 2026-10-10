@@ -51,9 +51,12 @@ async function boot(): Promise<void> {
   // The store opens meanwhile.
   const config = (inlineConfig ? JSON.parse(inlineConfig) : await (await get("config.json")).json()) as SiteConfig;
   const opening = openStore(globalThis.indexedDB, `wirebook:${config.id}:${location.pathname}`);
+  // The core's file carries a hash in its name; the page's head knows it.
+  const coreFile =
+    document.querySelector<HTMLLinkElement>('link[rel="preload"][href$=".wasm"]')?.getAttribute("href") ?? "core.wasm";
   const [image, wasm] = await Promise.all([
     inlineSchema ? decode(inlineSchema) : bytes("schema.binpb"),
-    inlineCore ? decode(inlineCore) : get("core.wasm"),
+    inlineCore ? decode(inlineCore) : get(coreFile),
   ]);
   mark("fetched");
   const core = await Core.load(wasm, image, { roots: config.roots, lookups: config.lookups });

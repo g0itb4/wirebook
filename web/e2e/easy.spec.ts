@@ -326,7 +326,10 @@ test.describe("the look", () => {
     expect(mid.console.y).toBeGreaterThan(mid.reference.y + 100);
 
     await page.evaluate(() => document.fonts.ready);
-    expect(fonts.sort()).toEqual(["200 /fonts/jetbrains-mono.woff2", "200 /fonts/space-grotesk.woff2"]);
+    // Each font once, from this site, under its hashed name.
+    expect(fonts.sort()).toHaveLength(2);
+    expect(fonts[0]).toMatch(/^200 \/fonts\/jetbrains-mono\.[0-9a-f]{8}\.woff2$/);
+    expect(fonts[1]).toMatch(/^200 \/fonts\/space-grotesk\.[0-9a-f]{8}\.woff2$/);
     expect(await page.evaluate(() => document.fonts.check('1rem "JetBrains Mono"'))).toBe(true);
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe("dark");
   });

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -20,17 +21,28 @@ var (
 func TestFiles(t *testing.T) {
 	files := Files(img, cfg)
 	for _, name := range []string{Page, Script, Style, Core, Schema, Config} {
-		if len(files[name]) == 0 {
-			t.Errorf("%s is missing or empty", name)
+		if len(files[Name(name)]) == 0 {
+			t.Errorf("%s is missing or empty", Name(name))
+		}
+	}
+	// The build's files carry a hash: app.1a2b3c4d.js. The site's own do not.
+	for _, name := range []string{Script, Style, Core, Fonts[0]} {
+		if !regexp.MustCompile(`^[a-z/-]+\.[0-9a-f]{8}\.[a-z0-9]+$`).MatchString(Name(name)) {
+			t.Errorf("Name(%s) = %s, want a hash in it", name, Name(name))
+		}
+	}
+	for _, name := range []string{Page, Schema, Config, FontLicence} {
+		if Name(name) != name {
+			t.Errorf("Name(%s) = %s, want it unchanged", name, Name(name))
 		}
 	}
 	for _, font := range Fonts {
-		if !bytes.HasPrefix(files[font], []byte("wOF2")) {
-			t.Errorf("%s is not a WOFF2 font", font)
+		if !bytes.HasPrefix(files[Name(font)], []byte("wOF2")) {
+			t.Errorf("%s is not a WOFF2 font", Name(font))
 		}
 		// The style asks for each font by the name it is written under.
-		if !bytes.Contains(files[Style], []byte(`url(`+font+`)`)) {
-			t.Errorf("the style does not load %s", font)
+		if !bytes.Contains(files[Name(Style)], []byte(`url(`+Name(font)+`)`)) {
+			t.Errorf("the style does not load %s", Name(font))
 		}
 	}
 	if !bytes.Contains(files[FontLicence], []byte("SIL Open Font License")) {
@@ -42,10 +54,20 @@ func TestFiles(t *testing.T) {
 	if string(files[Schema]) != "the schema" {
 		t.Errorf("schema = %q", files[Schema])
 	}
-	if !bytes.HasPrefix(files[Core], []byte("\x00asm")) {
+	if !bytes.HasPrefix(files[Name(Core)], []byte("\x00asm")) {
 		t.Error("core.wasm is not a WebAssembly module")
 	}
 	index := string(files[Page])
+	// The page asks for the build's files by their hashed names, and for the
+	// site's own by theirs.
+	for _, name := range []string{Script, Style, Core, Fonts[0], Fonts[1]} {
+		if !strings.Contains(index, `="`+Name(name)+`"`) || strings.Contains(index, `="`+name+`"`) {
+			t.Errorf("the page does not ask for %s as %s", name, Name(name))
+		}
+	}
+	if !strings.Contains(index, `href="schema.binpb"`) || !strings.Contains(index, `href="config.json"`) {
+		t.Error("the page does not ask for the schema and the config by their plain names")
+	}
 	if !strings.Contains(index, "<title>Widgets &lt;&amp;&gt; &#34;API&#34;</title>") {
 		t.Errorf("the title is not set, or not escaped:\n%s", index)
 	}
@@ -61,8 +83,9 @@ func TestFiles(t *testing.T) {
 			t.Errorf("the page's head lacks %s", meta)
 		}
 	}
-	if !strings.Contains(index, scriptTag) || !strings.Contains(index, styleTag) {
-		t.Error("a directory site loads its script and style from files")
+	if !strings.Contains(index, `<script type="module" src="`+Name(Script)+`"></script>`) ||
+		!strings.Contains(index, `<link rel="stylesheet" href="`+Name(Style)+`" />`) {
+		t.Error("a directory site loads its script and style from files, by their hashed names")
 	}
 	want := `{"id":"abc123","title":"Widgets \u003c\u0026\u003e \"API\"","roots":["a.proto"],"environments":[],"auth":[],"lookups":{},"links":[],"liveReload":false}`
 	if string(files[Config]) != want {
@@ -72,9 +95,12 @@ func TestFiles(t *testing.T) {
 
 func TestSingleFileHoldsEverything(t *testing.T) {
 	text := string(SingleFile(img, cfg))
-	for _, gone := range []string{scriptTag, styleTag, `src="`, `href="app`, `url(fonts/`, `rel="preload"`, `modulepreload`} {
-		if strings.Contains(text, gone) {
-			t.Errorf("the file still refers to another one: %s", gone)
+	// The script itself reads `link[rel="preload"]`, so the tags are looked
+	// for whole, not by that word.
+	gone := append([]string{scriptTag, styleTag, `src="`, `href="app`, `url(fonts/`, `modulepreload`}, preloadTags...)
+	for _, tag := range gone {
+		if strings.Contains(text, tag) {
+			t.Errorf("the file still refers to another one: %s", tag)
 		}
 	}
 	for _, want := range []string{

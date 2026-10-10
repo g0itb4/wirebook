@@ -13,6 +13,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/g0itb4/wirebook/internal/site"
 )
 
 const fixture = "../../testdata/fixture.binpb"
@@ -78,8 +80,8 @@ func TestBuildWritesADirectory(t *testing.T) {
 		t.Errorf("stdout = %q, want %q", stdout, want)
 	}
 	for _, name := range []string{
-		"index.html", "app.js", "app.css", "core.wasm", "schema.binpb", "config.json",
-		"fonts/jetbrains-mono.woff2", "fonts/space-grotesk.woff2", "fonts/OFL.txt",
+		"index.html", site.Name("app.js"), site.Name("app.css"), site.Name("core.wasm"), "schema.binpb", "config.json",
+		site.Name("fonts/jetbrains-mono.woff2"), site.Name("fonts/space-grotesk.woff2"), "fonts/OFL.txt",
 	} {
 		if info, err := os.Stat(filepath.Join(out, name)); err != nil || info.Size() == 0 {
 			t.Errorf("%s: %v", name, err)

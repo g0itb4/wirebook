@@ -58,9 +58,12 @@ wirebook build --out site            # a directory of static files
 wirebook build --single-file api.html   # or everything in one file
 ```
 
-Serve the directory with anything. The single file opens from a disk. A
-hosted site calls the API directly, so the API must allow the site's origin:
-see [CORS](#cors).
+Serve the directory with anything. The files of the build (`app.*.js`,
+`app.*.css`, `core.*.wasm`, the fonts) carry a hash of their bytes in their
+name, so a host may send them with `Cache-Control: immutable`; `index.html`,
+`schema.binpb` and `config.json` change with every build, and want
+`no-cache`. The single file opens from a disk. A hosted site calls the API
+directly, so the API must allow the site's origin: see [CORS](#cors).
 
 ### As a buf plugin
 
