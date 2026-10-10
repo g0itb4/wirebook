@@ -450,6 +450,18 @@ main.split {
   margin-top: 0;
 }
 
+/* Who made the page, and where the API's own pages are. */
+.foot {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s5);
+  padding: var(--s4) 2.5rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
 .boot,
 .fatal {
   display: block;

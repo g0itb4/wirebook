@@ -52,7 +52,7 @@ func TestFiles(t *testing.T) {
 	if !strings.Contains(index, scriptTag) || !strings.Contains(index, styleTag) {
 		t.Error("a directory site loads its script and style from files")
 	}
-	want := `{"id":"abc123","title":"Widgets \u003c\u0026\u003e \"API\"","roots":["a.proto"],"environments":[],"auth":[],"lookups":{},"liveReload":false}`
+	want := `{"id":"abc123","title":"Widgets \u003c\u0026\u003e \"API\"","roots":["a.proto"],"environments":[],"auth":[],"lookups":{},"links":[],"liveReload":false}`
 	if string(files[Config]) != want {
 		t.Errorf("config = %s, want %s", files[Config], want)
 	}

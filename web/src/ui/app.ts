@@ -8,6 +8,9 @@ import { badge, h, replace } from "./dom";
 import { environmentDialog } from "./environments";
 import { type Panes, enumPage, home, kindOf, messagePage, missing, servicePage, useNames } from "./pages";
 
+/** Where wirebook lives. Every site says so, in its footer. */
+const REPO = "https://github.com/g0itb4/wirebook";
+
 function hitTarget(hit: Hit): string {
   return hit.kind === "field" || hit.kind === "value" ? hit.page : hit.name;
 }
@@ -18,6 +21,16 @@ export function mount(root: HTMLElement, context: Context): void {
   const main = h("main", { id: "main", tabindex: "-1" });
   const reference = h("div", { class: "pane" });
   const side = h("section", { class: "pane side", "aria-label": "Console and examples" });
+  // The footer: who made the page, and the site's own links. A link is
+  // text and an href; the config refused anything but https.
+  const foot = h(
+    "footer",
+    { class: "foot" },
+    h("span", null, "Built with ", h("a", { href: REPO, rel: "noopener" }, "wirebook on GitHub")),
+    config.links
+      .filter((link) => link.url.startsWith("https://"))
+      .map((link) => h("a", { href: link.url, rel: "noopener" }, link.label)),
+  );
   const nav = h("nav", { id: "nav", "aria-label": "Schema" });
   const dialog = environmentDialog(context);
   let page: Page | undefined;
@@ -284,7 +297,7 @@ export function mount(root: HTMLElement, context: Context): void {
     h("div", { class: "layout" }, nav, main),
     dialog.element,
   );
-  main.append(reference, side);
+  main.append(reference, side, foot);
   showEnvironment();
   showNav();
   show(false);

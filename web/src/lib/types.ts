@@ -229,6 +229,8 @@ export interface SiteConfig {
   lookups: Record<string, string | null>;
   /** The schemes the API accepts. Empty means all four are offered. */
   auth: AuthSetting[];
+  /** The footer's links beside the one to wirebook: https URLs, checked at build. */
+  links: { label: string; url: string }[];
   /** Set by `wirebook serve`: reload when the protos change. */
   liveReload: boolean;
 }

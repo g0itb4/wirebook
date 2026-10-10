@@ -105,6 +105,17 @@ test("a request message names the method that takes it", async ({ page }) => {
   await expect(users.getByRole("link", { name: "fixture.v1.WidgetService/GetWidget" })).toBeVisible();
 });
 
+test("every page names wirebook, and the site's own links", async ({ page }) => {
+  await open(page, "#/fixture.v1.WidgetService/GetWidget");
+  // Inside main, a footer is not the page's contentinfo landmark: find it by element.
+  const foot = page.locator("footer");
+  await expect(foot.getByRole("link", { name: "wirebook on GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/g0itb4/wirebook",
+  );
+  await expect(foot.getByRole("link", { name: "Fixture docs" })).toHaveAttribute("href", "https://example.com/fixture");
+});
+
 test("a deprecated declaration is marked", async ({ page }) => {
   await open(page, "#/fixture.legacy.v1.OldThing");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("deprecated");

@@ -34,6 +34,7 @@ export function config(overrides: Partial<SiteConfig> = {}): SiteConfig {
     environments: [],
     auth: [],
     lookups: {},
+    links: [],
     liveReload: false,
     ...overrides,
   };

@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // DefaultTitle names a site whose config gives none.
@@ -31,6 +32,16 @@ type File struct {
 	// "package.Service/Method", or to null for no list. The page checks that
 	// the method may be called on its own.
 	Lookups map[string]*string `json:"lookups,omitempty"`
+	// Links are shown in the page's footer, beside the link to wirebook:
+	// the API's own documentation, its repository, where to ask.
+	Links []Link `json:"links,omitempty"`
+}
+
+// Link is a place the footer points at. The file is published, so the URL
+// is https only, and never carries a credential.
+type Link struct {
+	Label string `json:"label"`
+	URL   string `json:"url"`
 }
 
 // Environment is a place the API runs.
@@ -66,6 +77,7 @@ type Site struct {
 	Environments []Environment      `json:"environments"`
 	Auth         []Setting          `json:"auth"`
 	Lookups      map[string]*string `json:"lookups"`
+	Links        []Link             `json:"links"`
 	LiveReload   bool               `json:"liveReload"`
 }
 
@@ -187,7 +199,59 @@ func Parse(r io.Reader) (File, error) {
 			return File{}, fmt.Errorf("the auth scheme is %q, want bearer, basic or api-key", auth.Scheme)
 		}
 	}
+
+	if len(file.Links) > maxLinks {
+		return File{}, fmt.Errorf("%d links, the footer holds %d", len(file.Links), maxLinks)
+	}
+	urls := map[string]bool{}
+	for i := range file.Links {
+		link := &file.Links[i]
+		link.Label = strings.TrimSpace(link.Label)
+		link.URL = strings.TrimSpace(link.URL)
+		switch {
+		case link.Label == "":
+			return File{}, fmt.Errorf("link %d has no label", i+1)
+		case utf8.RuneCountInString(link.Label) > maxLabel:
+			return File{}, fmt.Errorf("link %d: the label is longer than %d characters", i+1, maxLabel)
+		case urls[link.URL]:
+			return File{}, fmt.Errorf("link %d: %s is listed twice", i+1, link.URL)
+		}
+		if err := CheckLinkURL(link.URL); err != nil {
+			return File{}, fmt.Errorf("link %q: url %w", link.Label, err)
+		}
+		urls[link.URL] = true
+	}
 	return file, nil
+}
+
+// The footer is one line of links.
+const (
+	maxLinks = 8
+	maxLabel = 60
+)
+
+// CheckLinkURL holds a footer link to the rules of a published file: https,
+// a host, no credential, no whitespace or control character. A query or a
+// fragment is allowed: a page of documentation has an anchor.
+func CheckLinkURL(url string) error {
+	rest, ok := strings.CutPrefix(url, "https://")
+	if !ok {
+		return errors.New("must start with https://")
+	}
+	if strings.ContainsFunc(url, func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) || r == '\\' }) {
+		return errors.New("must not have spaces, a backslash or a control character")
+	}
+	host := rest
+	if i := strings.IndexAny(rest, "/?#"); i >= 0 {
+		host = rest[:i]
+	}
+	if host == "" {
+		return errors.New("has no host")
+	}
+	if strings.Contains(host, "@") {
+		return errors.New("must not carry a user name or a password")
+	}
+	return nil
 }
 
 // CheckBaseURL holds a base URL to the rules the page's core has: an origin
@@ -269,6 +333,7 @@ func (f File) Site(id string, roots []string, liveReload bool) Site {
 		Environments: f.Environments,
 		Auth:         []Setting{},
 		Lookups:      f.Lookups,
+		Links:        f.Links,
 		LiveReload:   liveReload,
 	}
 	// The page reads a nil slice as null; it wants a list.
@@ -280,6 +345,9 @@ func (f File) Site(id string, roots []string, liveReload bool) Site {
 	}
 	if site.Lookups == nil {
 		site.Lookups = map[string]*string{}
+	}
+	if site.Links == nil {
+		site.Links = []Link{}
 	}
 	for _, auth := range f.Auth {
 		setting := Setting{Scheme: auth.Scheme, Name: auth.Name, Location: auth.Location}

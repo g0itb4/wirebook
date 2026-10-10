@@ -1,4 +1,8 @@
 {
   "title": "Eliza",
-  "environments": [{ "name": "demo.connectrpc.com", "baseUrl": "https://demo.connectrpc.com" }]
+  "environments": [{ "name": "demo.connectrpc.com", "baseUrl": "https://demo.connectrpc.com" }],
+  "links": [
+    { "label": "connectrpc/examples-go", "url": "https://github.com/connectrpc/examples-go" },
+    { "label": "buf.build/connectrpc/eliza", "url": "https://buf.build/connectrpc/eliza" }
+  ]
 }

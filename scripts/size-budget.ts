@@ -28,8 +28,9 @@ const BUDGET: Record<string, number> = {
   // console's sections (`.card`), the fields of a message as a list, and
   // the joined buttons of a choice. Measured: 4 456 before, 5 135 after.
   // Then lowered, from 5 200, once `just dist` minified the style:
-  // 5 135 before, 3 766 after.
-  "app.css": 3_900,
+  // 5 135 before, 3 766 after. Raised once, from 3 900, for the footer
+  // (`.foot`): 3 766 before, 3 903 after.
+  "app.css": 4_000,
   "index.html": 480,
 };
 

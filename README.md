@@ -96,15 +96,17 @@ Optional. `wirebook.json`, next to `buf.yaml`:
   "lookups": {
     "widgets.v1.Order.buyer_id": "widgets.v1.UserService/ListUsers",
     "widgets.v1.Order.legacy_id": null
-  }
+  },
+  "links": [{ "label": "Widgets guide", "url": "https://docs.example.com/widgets" }]
 }
 ```
 
 `auth` lists the schemes the API accepts; the console offers those. Without
 it, all four are offered. `variables` and `lookups` are explained under
-[the console](#the-console). The file is committed and the site may be
-public, so it has no field for a credential, a variable named like one is
-refused, and an unknown field is an error.
+[the console](#the-console). `links` go in the page's footer, beside the
+link to wirebook: https only, up to eight. The file is committed and the
+site may be public, so it has no field for a credential, a variable named
+like one is refused, and an unknown field is an error.
 
 ## The console
 

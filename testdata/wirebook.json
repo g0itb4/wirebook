@@ -4,5 +4,6 @@
     { "name": "Direct, with CORS", "baseUrl": "http://127.0.0.1:18081" },
     { "name": "Direct, without CORS", "baseUrl": "http://127.0.0.1:18080" }
   ],
-  "auth": [{ "scheme": "bearer" }, { "scheme": "basic" }, { "scheme": "api-key" }]
+  "auth": [{ "scheme": "bearer" }, { "scheme": "basic" }, { "scheme": "api-key" }],
+  "links": [{ "label": "Fixture docs", "url": "https://example.com/fixture" }]
 }

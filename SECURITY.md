@@ -128,6 +128,9 @@ unless asked. `crates/core/src/scrub.rs`.
   origin, so no other server learns who reads the documentation.
 - The page refuses to run in a frame of another site, with or without the
   header that forbids it. `web/src/lib/guard.ts`.
+- The footer's links come from the config, which is checked when the site
+  is built: https only, a host, no credential. On the page each is a text
+  node and an `href`, nothing else. `internal/config/config.go`.
 
 ### The copied command is one command
 

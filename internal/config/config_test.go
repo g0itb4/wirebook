@@ -104,22 +104,60 @@ func TestSite(t *testing.T) {
 	file, err := Parse(strings.NewReader(`{
 		"title": "Widgets",
 		"environments": [{"name": "local", "baseUrl": "http://localhost:8080"}],
-		"auth": [{"scheme": "bearer"}, {"scheme": "basic"}, {"scheme": "api-key", "name": "key", "location": "query"}]
+		"auth": [{"scheme": "bearer"}, {"scheme": "basic"}, {"scheme": "api-key", "name": "key", "location": "query"}],
+		"links": [{"label": " Docs ", "url": " https://docs.example/widgets#start "}]
 	}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := file.Site("abc123", []string{"a.proto"}, true).JSON()
 	want := `{"id":"abc123","title":"Widgets","roots":["a.proto"],"environments":[{"name":"local","baseUrl":"http://localhost:8080"}],` +
-		`"auth":[{"scheme":"bearer"},{"scheme":"basic","username":""},{"scheme":"api-key","name":"key","location":"query"}],"lookups":{},"liveReload":true}`
+		`"auth":[{"scheme":"bearer"},{"scheme":"basic","username":""},{"scheme":"api-key","name":"key","location":"query"}],"lookups":{},` +
+		`"links":[{"label":"Docs","url":"https://docs.example/widgets#start"}],"liveReload":true}`
 	if string(got) != want {
 		t.Errorf("site =\n%s\nwant\n%s", got, want)
 	}
 
 	// Nothing configured: lists, not nulls.
 	empty := File{Title: DefaultTitle}.Site("", nil, false).JSON()
-	if want := `{"id":"","title":"API explorer","roots":[],"environments":[],"auth":[],"lookups":{},"liveReload":false}`; string(empty) != want {
+	if want := `{"id":"","title":"API explorer","roots":[],"environments":[],"auth":[],"lookups":{},"links":[],"liveReload":false}`; string(empty) != want {
 		t.Errorf("empty site = %s, want %s", empty, want)
+	}
+}
+
+func TestLinksRefused(t *testing.T) {
+	refused := map[string]string{
+		`{"links": [{"label": "", "url": "https://a.example"}]}`:                                              "link 1 has no label",
+		`{"links": [{"label": "` + strings.Repeat("x", 61) + `", "url": "https://a.example"}]}`:               "longer than 60 characters",
+		`{"links": [{"label": "a", "url": "https://a.example"}, {"label": "b", "url": "https://a.example"}]}`: "listed twice",
+		`{"links": [{"label": "a", "url": "http://a.example"}]}`:                                              "must start with https://",
+		`{"links": [{"label": "a", "url": "javascript:alert(1)"}]}`:                                           "must start with https://",
+		`{"links": [{"label": "a", "url": "https://a.example/a b"}]}`:                                         "must not have spaces",
+		`{"links": [{"label": "a", "url": "https://a.example/\\x"}]}`:                                         "must not have spaces",
+		`{"links": [{"label": "a", "url": "https://"}]}`:                                                      "has no host",
+		`{"links": [{"label": "a", "url": "https://user@a.example"}]}`:                                        "user name or a password",
+	}
+	for input, want := range refused {
+		_, err := Parse(strings.NewReader(input))
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Parse(%s) = %v, want an error with %q", input, err, want)
+		}
+	}
+	nine := `{"links": [`
+	for i := range 9 {
+		if i > 0 {
+			nine += ","
+		}
+		nine += `{"label": "a", "url": "https://a.example/` + strings.Repeat("x", i) + `"}`
+	}
+	nine += "]}"
+	if _, err := Parse(strings.NewReader(nine)); err == nil || !strings.Contains(err.Error(), "the footer holds 8") {
+		t.Errorf("Parse(nine links) = %v, want the footer's limit", err)
+	}
+	// Allowed: a query and a fragment, and a label of 60 characters.
+	ok := `{"links": [{"label": "` + strings.Repeat("y", 60) + `", "url": "https://a.example/p?q=1#frag"}]}`
+	if _, err := Parse(strings.NewReader(ok)); err != nil {
+		t.Errorf("Parse(ok link) = %v", err)
 	}
 }
 

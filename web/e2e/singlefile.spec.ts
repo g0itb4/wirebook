@@ -27,6 +27,10 @@ test("one file holds the page, the core and the schema", async ({ page }) => {
   await expect(page.getByRole("heading", { level: 1, name: "Fixture API" })).toBeVisible();
   // It loaded nothing but itself.
   expect(requests).toEqual([pathToFileURL(file).href]);
+  await expect(page.getByRole("link", { name: "wirebook on GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/g0itb4/wirebook",
+  );
 
   // The core works: it validates, and builds a request.
   await page.goto(`${pathToFileURL(file).href}#/fixture.v1.WidgetService/GetWidget`);
