@@ -19,32 +19,53 @@ function decode(base64: string): Uint8Array {
   return out;
 }
 
+// With the page's own cache mode, so that the preload of each file in the
+// page's head is what this reads, and the host's Cache-Control decides.
 async function get(path: string): Promise<Response> {
-  const response = await fetch(path, { cache: "no-cache" });
+  const response = await fetch(path);
   if (!response.ok) throw new Error(`${path} could not be loaded: HTTP ${response.status}`);
   return response;
 }
 
+async function bytes(path: string): Promise<Uint8Array> {
+  return new Uint8Array(await (await get(path)).arrayBuffer());
+}
+
 const FRAMED = "This page does not run inside a frame of another site. Open it in a tab of its own.";
 
+// The marks a speed test reads: when the script started, when every file
+// was here, when the core had the schema, when the page was built.
+const mark = (name: string): void => {
+  performance.mark(`wirebook:${name}`);
+};
+
 async function boot(): Promise<void> {
+  mark("boot");
   if (framedByAnotherSite(window)) throw new Error(FRAMED);
   const inlineConfig = inline("wirebook-config");
   const inlineSchema = inline("wirebook-schema");
   const inlineCore = inline("wirebook-core");
 
+  // The schema and the core come down together, and the core is compiled
+  // as it arrives: a Response goes to WebAssembly.instantiateStreaming.
+  // The store opens meanwhile.
   const config = (inlineConfig ? JSON.parse(inlineConfig) : await (await get("config.json")).json()) as SiteConfig;
-  const image = inlineSchema ? decode(inlineSchema) : new Uint8Array(await (await get("schema.binpb")).arrayBuffer());
-  const wasm = inlineCore ? decode(inlineCore) : await (await get("core.wasm")).arrayBuffer();
-  const core = await Core.load(wasm as BufferSource, image, { roots: config.roots, lookups: config.lookups });
+  const opening = openStore(globalThis.indexedDB, `wirebook:${config.id}:${location.pathname}`);
+  const [image, wasm] = await Promise.all([
+    inlineSchema ? decode(inlineSchema) : bytes("schema.binpb"),
+    inlineCore ? decode(inlineCore) : get("core.wasm"),
+  ]);
+  mark("fetched");
+  const core = await Core.load(wasm, image, { roots: config.roots, lookups: config.lookups });
+  mark("core");
 
   // One store per site: two sites on one origin do not share environments.
   // And one per API: `wirebook serve` shows every repository at the same
   // address, and one repository's environments are not another's.
-  const store = await openStore(globalThis.indexedDB, `wirebook:${config.id}:${location.pathname}`);
-  const context = new Context(core, config, store);
+  const context = new Context(core, config, await opening);
   await context.load();
   mount(document.body, context);
+  requestAnimationFrame(() => requestAnimationFrame(() => mark("painted")));
 
   if (config.liveReload) {
     new EventSource("events").addEventListener("reload", () => location.reload());

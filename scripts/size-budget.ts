@@ -31,7 +31,10 @@ const BUDGET: Record<string, number> = {
   // 5 135 before, 3 766 after. Raised once, from 3 900, for the footer
   // (`.foot`): 3 766 before, 3 903 after.
   "app.css": 4_000,
-  "index.html": 480,
+  // Raised once, from 480, for the preload of the core, the schema, the
+  // config and the two fonts, and for the shell the page shows while the
+  // core loads. Measured: 452 before, 625 after.
+  "index.html": 700,
 };
 
 // Bytes as they are: a WOFF2 font is compressed already.

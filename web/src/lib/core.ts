@@ -35,11 +35,16 @@ export class Core {
   }
 
   /**
-   * `wasm` is the core, compiled or as bytes; `image` the descriptor set of
-   * the site. Instantiation is asynchronous: a browser refuses to compile a
-   * module of this size on its main thread any other way.
+   * `wasm` is the core: compiled, as bytes, or as the response that is
+   * bringing it, which is compiled as it streams in. `image` is the
+   * descriptor set of the site. Instantiation is asynchronous: a browser
+   * refuses to compile a module of this size on its main thread any other way.
    */
-  static async load(wasm: BufferSource | WebAssembly.Module, image: Uint8Array, options: Options): Promise<Core> {
+  static async load(
+    wasm: BufferSource | WebAssembly.Module | Response | Promise<Response>,
+    image: Uint8Array,
+    options: Options,
+  ): Promise<Core> {
     await init({ module_or_path: wasm });
     return new Core(new Explorer(image, JSON.stringify(options)));
   }

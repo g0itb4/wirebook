@@ -47,6 +47,15 @@ test("curl hides the secret unless asked", () => {
   expect(core().snippet(withToken, "curl", false)).toContain("'Authorization: Bearer s3cr3t'");
 });
 
+test("the core loads from the response that brings it", async () => {
+  const root = join(import.meta.dir, "../../..");
+  const wasm = readFileSync(join(root, "web/src/gen/core_bg.wasm"));
+  const image = new Uint8Array(readFileSync(join(root, "testdata/fixture.binpb")));
+  const response = new Response(wasm, { headers: { "Content-Type": "application/wasm" } });
+  const streamed = await Core.load(Promise.resolve(response), image, { roots: [], lookups: {} });
+  expect(streamed.index.messages.length).toBe(core().index.messages.length);
+});
+
 test("a second schema loads into the core that is already there", () => {
   const image = new Uint8Array(readFileSync(join(import.meta.dir, "../../../testdata/fixture.binpb")));
   const again = Core.loadAgain(image, { roots: [], lookups: {} });

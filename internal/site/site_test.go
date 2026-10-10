@@ -49,6 +49,9 @@ func TestFiles(t *testing.T) {
 	if !strings.Contains(index, "<title>Widgets &lt;&amp;&gt; &#34;API&#34;</title>") {
 		t.Errorf("the title is not set, or not escaped:\n%s", index)
 	}
+	if !strings.Contains(index, `<a class="brand" href="#/">Widgets &lt;&amp;&gt; &#34;API&#34;</a>`) {
+		t.Errorf("the brand shown while loading is not the title, escaped:\n%s", index)
+	}
 	if !strings.Contains(index, scriptTag) || !strings.Contains(index, styleTag) {
 		t.Error("a directory site loads its script and style from files")
 	}
@@ -60,7 +63,7 @@ func TestFiles(t *testing.T) {
 
 func TestSingleFileHoldsEverything(t *testing.T) {
 	text := string(SingleFile(img, cfg))
-	for _, gone := range []string{scriptTag, styleTag, `src="`, `href="app`, `url(fonts/`} {
+	for _, gone := range []string{scriptTag, styleTag, `src="`, `href="app`, `url(fonts/`, `rel="preload"`, `modulepreload`} {
 		if strings.Contains(text, gone) {
 			t.Errorf("the file still refers to another one: %s", gone)
 		}
@@ -127,7 +130,8 @@ func TestEachSiteDeclaresItsPolicy(t *testing.T) {
 func TestPageNeedsItsMarkers(t *testing.T) {
 	// The page is read from the build. Each tag must be there, once.
 	source := string(asset(Page))
-	for _, tag := range []string{titleTag, styleTag, scriptTag, `content="` + policyOfFiles + `"`} {
+	tags := append([]string{titleTag, brandTag, styleTag, scriptTag, `content="` + policyOfFiles + `"`}, preloadTags...)
+	for _, tag := range tags {
 		if strings.Count(source, tag) != 1 {
 			t.Errorf("the embedded page has %d of %s, want 1", strings.Count(source, tag), tag)
 		}

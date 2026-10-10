@@ -45,9 +45,21 @@ const FontLicence = "fonts/OFL.txt"
 // What the page says in its source, and what a build replaces it with.
 const (
 	titleTag  = "<title>" + config.DefaultTitle + "</title>"
+	brandTag  = `<a class="brand" href="#/">` + config.DefaultTitle + `</a>`
 	styleTag  = `<link rel="stylesheet" href="app.css" />`
 	scriptTag = `<script type="module" src="app.js"></script>`
 )
+
+// The page's head asks for its files before its script runs. A site in one
+// file has nothing to ask for, and drops them.
+var preloadTags = []string{
+	`<link rel="modulepreload" href="app.js" />`,
+	`<link rel="preload" href="core.wasm" as="fetch" crossorigin />`,
+	`<link rel="preload" href="schema.binpb" as="fetch" crossorigin />`,
+	`<link rel="preload" href="config.json" as="fetch" crossorigin />`,
+	`<link rel="preload" href="fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin />`,
+	`<link rel="preload" href="fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin />`,
+}
 
 // The policy the page declares for itself, so that it holds on any host: the
 // page runs its own script and the core, loads its own style and fonts, and
@@ -80,11 +92,13 @@ func asset(name string) []byte {
 	return data
 }
 
-// page is the embedded page with the site's title. A test holds the page to
-// having each of the three tags once.
+// page is the embedded page with the site's title, in its head and on the
+// brand the page shows while the core loads. A test holds the page to having
+// each tag once.
 func page(cfg config.Site) []byte {
-	title := "<title>" + html.EscapeString(cfg.Title) + "</title>"
-	return bytes.Replace(asset(Page), []byte(titleTag), []byte(title), 1)
+	title := html.EscapeString(cfg.Title)
+	index := bytes.Replace(asset(Page), []byte(titleTag), []byte("<title>"+title+"</title>"), 1)
+	return bytes.Replace(index, []byte(brandTag), []byte(`<a class="brand" href="#/">`+title+`</a>`), 1)
 }
 
 // Files returns a site as the files of a directory, by name.
@@ -146,6 +160,9 @@ func SingleFile(img image.Image, cfg config.Site) []byte {
 
 	index := bytes.Replace(page(cfg), []byte(styleTag), style.Bytes(), 1)
 	index = bytes.Replace(index, []byte(scriptTag), scripts.Bytes(), 1)
+	for _, tag := range preloadTags {
+		index = bytes.Replace(index, []byte("    "+tag+"\n"), nil, 1)
+	}
 	// The two data blocks are not scripts to a browser, and need no hash.
 	policy := fmt.Sprintf(policyOfOneFile, hash(script), hash(css))
 	return bytes.Replace(index, []byte(policyOfFiles), []byte(policy), 1)
