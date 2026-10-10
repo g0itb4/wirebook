@@ -2,6 +2,11 @@
 
 Write proto files; get a site that documents the API and can call it.
 
+**Live example:** <https://wirebook.pigface.lol>, ConnectRPC's
+[Eliza](https://buf.build/connectrpc/eliza) protos, calling
+demo.connectrpc.com from the page. **Source:**
+<https://github.com/g0itb4/wirebook>.
+
 wirebook reads the descriptor set of a buf module and writes a static site:
 every service, method, message and enum with its comments, and on each method
 a console that sends a real request, over Connect or over REST, with the
@@ -36,6 +41,15 @@ through a proxy on the page's own origin, so that the API needs no CORS rules
 while you work. A hosted site calls the API directly.
 
 ## Quick start
+
+### Install
+
+```sh
+go install github.com/g0itb4/wirebook/cmd/wirebook@latest
+```
+
+And [buf](https://buf.build/docs/cli/installation/), which compiles the
+protos.
 
 ### While writing protos
 
@@ -83,6 +97,19 @@ buf generate          # writes docs/explorer/index.html
 The plugin's version is pinned in `go.mod`, like the other plugins of the
 module. Its options (`opt:`) are `config=path`, `out=name.html` and
 `title=text`.
+
+## The example
+
+`examples/eliza/` is ConnectRPC's Eliza: one service, three methods, six
+messages, and a public server to call. `just example` builds it into
+`out/eliza`; `just example-serve` serves it while editing; `just deploy`
+puts it on wirebook.pigface.lol. It is small on purpose, and it shows less
+than the page can: its protos carry no protovalidate rules, no
+`google.api.http` bindings and no `*_id` field, so there are no rule hints,
+no REST transport and no picker. The fixture under `testdata/proto` has all
+of those; the browser tests run against it. `Converse` is bidirectional,
+which a browser cannot send; the page says so. The protos are under the
+Apache License 2.0; see `examples/eliza/README.md`.
 
 ## Configuration
 

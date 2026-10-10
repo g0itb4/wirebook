@@ -153,8 +153,10 @@ deploy inventory="../infra/out/inventory.ini": example
 probe url="https://wirebook.pigface.lol":
     #!/usr/bin/env zsh
     set -eu
-    core=$(curl -s {{ url }}/ | grep -o 'href="core\.[0-9a-f]*\.wasm"' | cut -d'"' -f2)
-    for f in "" app.css schema.binpb $core; do
+    page=$(curl -s {{ url }}/)
+    core=$(echo $page | grep -o 'href="core\.[0-9a-f]*\.wasm"' | cut -d'"' -f2)
+    style=$(echo $page | grep -o 'href="app\.[0-9a-f]*\.css"' | cut -d'"' -f2)
+    for f in "" $style schema.binpb $core; do
       echo "── /$f"
       curl -sI -H 'Accept-Encoding: br' {{ url }}/$f | grep -i '^HTTP\|content-type\|content-encoding\|cache-control\|alt-svc' | sed 's/^/   /'
       curl -so /dev/null -w '   %{http_version} %{size_download} B, first byte %{time_starttransfer}s, total %{time_total}s\n' -H 'Accept-Encoding: br' {{ url }}/$f
