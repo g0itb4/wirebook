@@ -29,7 +29,7 @@ func TestFiles(t *testing.T) {
 			t.Errorf("%s is not a WOFF2 font", font)
 		}
 		// The style asks for each font by the name it is written under.
-		if !bytes.Contains(files[Style], []byte(`url("`+font+`")`)) {
+		if !bytes.Contains(files[Style], []byte(`url(`+font+`)`)) {
 			t.Errorf("the style does not load %s", font)
 		}
 	}
@@ -60,7 +60,7 @@ func TestFiles(t *testing.T) {
 
 func TestSingleFileHoldsEverything(t *testing.T) {
 	text := string(SingleFile(img, cfg))
-	for _, gone := range []string{scriptTag, styleTag, `src="`, `href="app`, `url("fonts/`} {
+	for _, gone := range []string{scriptTag, styleTag, `src="`, `href="app`, `url(fonts/`} {
 		if strings.Contains(text, gone) {
 			t.Errorf("the file still refers to another one: %s", gone)
 		}
@@ -69,7 +69,7 @@ func TestSingleFileHoldsEverything(t *testing.T) {
 		"<title>Widgets &lt;&amp;&gt; &#34;API&#34;</title>",
 		"<style>",
 		// The fonts are in the file, and so is their notice.
-		"url(\"data:font/woff2;base64,",
+		"url(data:font/woff2;base64,",
 		"SIL Open Font License",
 		`<script type="application/json" id="wirebook-config">{"id":"abc123","title":"Widgets \u003c\u0026\u003e`,
 		`<script type="application/octet-stream" id="wirebook-schema">` + base64.StdEncoding.EncodeToString([]byte("the schema")) + "</script>",

@@ -91,7 +91,10 @@ dist: wasm
     mkdir -p {{ dist }}
     cd web
     bun build src/main.ts --outfile ../{{ dist }}/app.js --target browser --format esm --minify
-    cp src/index.html src/app.css ../{{ dist }}/
+    # The fonts stay files beside the style (--external), and the licence
+    # notice stays in it: a /*! comment survives --minify.
+    bun build src/app.css --outfile ../{{ dist }}/app.css --target browser --minify --external 'fonts/*'
+    cp src/index.html ../{{ dist }}/
     cp src/gen/core_bg.wasm ../{{ dist }}/core.wasm
     # The two typefaces of the page, Latin only, from the packages bun.lock pins.
     mkdir -p ../{{ dist }}/fonts

@@ -27,7 +27,9 @@ const BUDGET: Record<string, number> = {
   // Raised once, from 4 600, for the roomier page: a scale of space, the
   // console's sections (`.card`), the fields of a message as a list, and
   // the joined buttons of a choice. Measured: 4 456 before, 5 135 after.
-  "app.css": 5_200,
+  // Then lowered, from 5 200, once `just dist` minified the style:
+  // 5 135 before, 3 766 after.
+  "app.css": 3_900,
   "index.html": 480,
 };
 
