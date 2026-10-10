@@ -128,6 +128,38 @@ example: build
 example-serve: build
     bin/wirebook serve --dir examples/eliza --buf "bunx buf" --target https://demo.connectrpc.com
 
+# Beside each file, for Caddy's `precompressed`: brotli first, then zstd, then
+# gzip. A WOFF2 font is compressed already and is left alone. Done here, so
+# the server needs no toolchain.
+#
+# write .br, .zst and .gz beside every file of a built site
+precompress dir:
+    #!/usr/bin/env zsh
+    set -eu
+    for f in {{ dir }}/**/*(.); do
+      case $f in *.woff2|*.br|*.zst|*.gz) continue;; esac
+      brotli -f -k -q 11 -- $f
+      zstd -f -q -19 -- $f
+      gzip -f -k -9 -- $f
+    done
+
+# build the Eliza example, precompress it, and put it on the server named by inventory
+deploy inventory="../infra/out/inventory.ini": example
+    just precompress out/eliza
+    ansible-playbook -i {{ inventory }} infra/ansible/playbook.yml \
+      -e release="$(date -u +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
+
+# the headers and the timing of a hosted site, as a browser would see them
+probe url="https://wirebook.pigface.lol":
+    #!/usr/bin/env zsh
+    set -eu
+    core=$(curl -s {{ url }}/ | grep -o 'href="core\.[0-9a-f]*\.wasm"' | cut -d'"' -f2)
+    for f in "" app.css schema.binpb $core; do
+      echo "── /$f"
+      curl -sI -H 'Accept-Encoding: br' {{ url }}/$f | grep -i '^HTTP\|content-type\|content-encoding\|cache-control\|alt-svc' | sed 's/^/   /'
+      curl -so /dev/null -w '   %{http_version} %{size_download} B, first byte %{time_starttransfer}s, total %{time_total}s\n' -H 'Accept-Encoding: br' {{ url }}/$f
+    done
+
 # ── tests ────────────────────────────────────────────────────────────────────
 
 # the fixture API and the wirebook binary, for the end-to-end tests

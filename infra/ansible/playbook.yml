@@ -1,0 +1,197 @@
+# Puts the Eliza example on the doe-lab server, as wirebook.pigface.lol: the
+# built site in a release directory under /srv/wirebook, a `current` link to
+# it, and a Caddy site block that the doe-lab Caddyfile imports from
+# /etc/caddy/sites/. Run again for every release: `just deploy`, which builds
+# and precompresses the site first.
+#
+# The server itself (packages, Caddy, the firewall) is doe-lab's playbook; this
+# one only adds to it. The inventory is the one that `tofu apply` in
+# ~/repos/infra writes, passed with -i.
+---
+- name: Deploy the Eliza example
+  hosts: all
+  become: true
+  force_handlers: true
+  vars:
+    wirebook_domain: wirebook.pigface.lol
+    # Built by `just example`, precompressed by `just precompress`.
+    wirebook_site: "{{ playbook_dir }}/../../out/eliza/"
+    wirebook_root: /srv/wirebook
+    # The release's name: the time and the commit, from `just deploy`.
+    wirebook_release: "{{ release }}"
+    wirebook_keep: 3
+
+  handlers:
+    - name: Reload caddy
+      ansible.builtin.service:
+        name: caddy
+        state: reloaded
+
+  tasks:
+    - name: Build present, and precompressed
+      ansible.builtin.stat:
+        path: "{{ wirebook_site }}{{ item }}"
+      delegate_to: localhost
+      become: false
+      register: built
+      failed_when: not built.stat.exists
+      loop:
+        - index.html
+        - index.html.br
+        - schema.binpb.br
+
+    - name: rsync, for mirroring the files
+      ansible.builtin.package:
+        name: rsync
+        state: present
+
+    - name: Release directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - "{{ wirebook_root }}"
+        - "{{ wirebook_root }}/releases"
+        - "{{ wirebook_root }}/releases/{{ wirebook_release }}"
+
+    # Mirror, not copy: a file that is not in the build is not on the server.
+    - name: Release files
+      ansible.posix.synchronize:
+        src: "{{ wirebook_site }}"
+        dest: "{{ wirebook_root }}/releases/{{ wirebook_release }}/"
+        delete: true
+        recursive: true
+        perms: false
+        owner: false
+        group: false
+        verify_host: true
+        rsync_opts:
+          - "--exclude=.*"
+
+    # Set here rather than with rsync --chmod: macOS ships openrsync, which
+    # lacks it.
+    - name: Release ownership and modes
+      ansible.builtin.file:
+        path: "{{ wirebook_root }}/releases/{{ wirebook_release }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "u=rwX,go=rX"
+        recurse: true
+
+    # The file module swaps a link by renaming over it: one atomic step, so a
+    # visitor never sees half a release.
+    - name: Current release
+      ansible.builtin.file:
+        src: "{{ wirebook_root }}/releases/{{ wirebook_release }}"
+        dest: "{{ wirebook_root }}/current"
+        state: link
+        force: true
+
+    - name: Older releases pruned
+      ansible.builtin.shell: >-
+        set -o pipefail;
+        ls -1dt {{ wirebook_root }}/releases/*/ | tail -n +{{ wirebook_keep + 1 }} | xargs -r rm -rf
+      args:
+        executable: /bin/bash
+      register: pruned
+      changed_when: pruned.stdout != ""
+
+    - name: Caddy sites directory
+      ansible.builtin.file:
+        path: /etc/caddy/sites
+        state: directory
+        mode: "0755"
+
+    - name: Caddy site block
+      ansible.builtin.copy:
+        dest: /etc/caddy/sites/wirebook.caddy
+        mode: "0644"
+        validate: caddy validate --adapter caddyfile --config %s
+        content: |
+          # wirebook.pigface.lol: the Eliza example, static files from the release
+          # that /srv/wirebook/current names. Written by wirebook's playbook.
+          #
+          # The page carries its own Content-Security-Policy in a meta tag, with
+          # connect-src * for the API it calls; the header here only adds what a
+          # meta tag cannot, frame-ancestors.
+          www.{{ wirebook_domain }} {
+          	redir https://{{ wirebook_domain }}{uri} permanent
+          }
+
+          {{ wirebook_domain }} {
+          	root * {{ wirebook_root }}/current
+
+          	header {
+          		Strict-Transport-Security "max-age=15552000; includeSubDomains"
+          		X-Frame-Options "DENY"
+          		X-Content-Type-Options "nosniff"
+          		Referrer-Policy "no-referrer"
+          		Content-Security-Policy "frame-ancestors 'none'"
+          		Permissions-Policy "camera=(), microphone=(), geolocation=(), usb=(), serial=(), hid=(), bluetooth=(), payment=(), display-capture=()"
+          		Cross-Origin-Opener-Policy "same-origin"
+          		Cross-Origin-Resource-Policy "same-origin"
+          		-Server
+          	}
+
+          	# The build's files carry a hash of their bytes in their name: a
+          	# browser may keep them for good. The page, the schema and the config
+          	# change with a release, and are asked for again each visit.
+          	@hashed path_regexp \.[0-9a-f]{8}\.(js|css|wasm|woff2)$
+          	header @hashed Cache-Control "public, max-age=31536000, immutable"
+          	@fresh path / /index.html /schema.binpb /config.json
+          	header @fresh Cache-Control "no-cache"
+
+          	# Each file has .br, .zst and .gz beside it, written at deploy; the
+          	# fonts are compressed already. encode covers anything without.
+          	encode zstd gzip
+          	file_server {
+          		precompressed br zstd gzip
+          		hide .*
+          	}
+          }
+      notify: Reload caddy
+
+    - name: Flush handlers
+      ansible.builtin.meta: flush_handlers
+
+    # The first run waits for the certificate.
+    - name: Health, the page
+      ansible.builtin.uri:
+        url: "https://{{ wirebook_domain }}/"
+        method: HEAD
+      register: page
+      retries: 20
+      delay: 5
+      until: >-
+        page.status == 200 and
+        page.content_type is defined and
+        page.content_type.startswith('text/html')
+
+    - name: Health, the core as brotli
+      ansible.builtin.uri:
+        url: "https://{{ wirebook_domain }}/"
+        return_content: true
+      register: index
+
+    - name: Health, the core's name
+      ansible.builtin.set_fact:
+        core_file: "{{ index.content | regex_search('href=\"(core\\.[0-9a-f]{8}\\.wasm)\"', '\\1') | first }}"
+
+    - name: Health, the core served compressed and cached
+      ansible.builtin.uri:
+        url: "https://{{ wirebook_domain }}/{{ core_file }}"
+        method: HEAD
+        headers:
+          Accept-Encoding: br
+      register: core
+      failed_when: >-
+        core.status != 200 or
+        core.content_type is not defined or
+        not core.content_type.startswith('application/wasm') or
+        core.content_encoding is not defined or
+        core.content_encoding != 'br' or
+        'immutable' not in (core.cache_control | default(''))

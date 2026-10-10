@@ -46,7 +46,7 @@ The reasons, and the rest of the rules: `CONTRIBUTING.md`.
 - **Site assembly**: the embedded build, with its fonts, plus one repository's schema and config. `internal/site/site.go`, `internal/image/image.go`, `internal/config/config.go`.
 - **Development server and proxy**: rebuild on change, reload, forward to the API for this site's page only, answer to known host names only. `internal/serve/serve.go`.
 - **Fixture API**: Connect and REST behind every scheme, for the browser tests. `internal/testserver/testserver.go`, `testdata/proto/`.
-- **Example**: ConnectRPC's Eliza, `examples/eliza/`, built by `just example`; what wirebook.pigface.lol serves.
+- **Example**: ConnectRPC's Eliza, `examples/eliza/`, built by `just example`; put on wirebook.pigface.lol by `just deploy` (`infra/ansible/playbook.yml`, `just precompress`), checked with `just probe`.
 - **Budgets and audits**: `scripts/size-budget.ts` (`just size`), `scripts/bench.ts` (`just bench`), `just audit`. CI pins: `.github/workflows/ci.yml`, `scripts/fetch-tool.sh`.
 
 ## Documents
