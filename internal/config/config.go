@@ -24,7 +24,11 @@ const DefaultTitle = "API explorer"
 
 // File is the content of wirebook.json.
 type File struct {
-	Title        string        `json:"title"`
+	Title string `json:"title"`
+	// Description is one line on what the API is, shown under the title on
+	// the home page and in the page's meta description. Published text,
+	// like the title.
+	Description  string        `json:"description,omitempty"`
 	Environments []Environment `json:"environments"`
 	Auth         []Auth        `json:"auth"`
 	// Lookups names the list a field's value is picked from, where the
@@ -73,6 +77,7 @@ type Site struct {
 	// ID names the API, so the page keeps its store apart from another's.
 	ID           string             `json:"id"`
 	Title        string             `json:"title"`
+	Description  string             `json:"description"`
 	Roots        []string           `json:"roots"`
 	Environments []Environment      `json:"environments"`
 	Auth         []Setting          `json:"auth"`
@@ -141,6 +146,13 @@ func Parse(r io.Reader) (File, error) {
 	}
 	if strings.TrimSpace(file.Title) == "" {
 		file.Title = DefaultTitle
+	}
+	file.Description = strings.TrimSpace(file.Description)
+	switch {
+	case strings.ContainsAny(file.Description, "\r\n"):
+		return File{}, errors.New("the description is more than one line")
+	case utf8.RuneCountInString(file.Description) > maxDescription:
+		return File{}, fmt.Errorf("the description is longer than %d characters", maxDescription)
 	}
 
 	names := map[string]bool{}
@@ -229,6 +241,9 @@ const (
 	maxLinks = 8
 	maxLabel = 60
 )
+
+// A description is a line, as a search result shows one.
+const maxDescription = 280
 
 // CheckLinkURL holds a footer link to the rules of a published file: https,
 // a host, no credential, no whitespace or control character. A query or a
@@ -329,6 +344,7 @@ func (f File) Site(id string, roots []string, liveReload bool) Site {
 	site := Site{
 		ID:           id,
 		Title:        f.Title,
+		Description:  f.Description,
 		Roots:        roots,
 		Environments: f.Environments,
 		Auth:         []Setting{},

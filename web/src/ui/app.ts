@@ -7,10 +7,18 @@ import { type Page, methodPage } from "./console";
 import { type Context, SIDE_MAX, SIDE_MIN } from "./context";
 import { badge, h, replace } from "./dom";
 import { environmentDialog } from "./environments";
-import { type Panes, enumPage, home, kindOf, messagePage, missing, servicePage, useNames } from "./pages";
-
-/** Where wirebook lives. Every site says so, in its footer. */
-const REPO = "https://github.com/g0itb4/wirebook";
+import {
+  type Panes,
+  REPO,
+  contents,
+  enumPage,
+  home,
+  kindOf,
+  messagePage,
+  missing,
+  servicePage,
+  useNames,
+} from "./pages";
 
 /** Above this many, a package's messages or enums are folded in the menu. */
 const FOLD = 24;
@@ -74,6 +82,7 @@ export function mount(root: HTMLElement, context: Context): void {
     "footer",
     { class: "foot" },
     h("span", null, "Built with ", h("a", { href: REPO, rel: "noopener" }, "wirebook on GitHub")),
+    h("a", { href: `${REPO}/issues`, rel: "noopener" }, "Report a wirebook bug"),
     config.links
       .filter((link) => link.url.startsWith("https://"))
       .map((link) => h("a", { href: link.url, rel: "noopener" }, link.label)),
@@ -376,6 +385,7 @@ export function mount(root: HTMLElement, context: Context): void {
         break;
     }
     replace(reference, panes.reference);
+    contents(reference);
     replace(side, panes.side ?? []);
     side.hidden = panes.side === undefined;
     main.classList.toggle("split", panes.side !== undefined);
@@ -427,6 +437,7 @@ export function mount(root: HTMLElement, context: Context): void {
       h("a", { class: "brand", href: "#/" }, config.title),
       h("div", { class: "search", role: "search" }, search, h("span", { class: "keys" }, keyHint, chordHint), hits),
       environmentButton,
+      h("a", { class: "repo", href: REPO, rel: "noopener", "aria-label": "wirebook source on GitHub" }, "wirebook"),
     ),
     h("div", { class: "layout" }, nav, main),
     dialog.element,

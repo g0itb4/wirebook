@@ -104,11 +104,15 @@ func asset(name string) []byte {
 // test holds the page to having each tag once.
 func page(cfg config.Site) []byte {
 	title := html.EscapeString(cfg.Title)
+	description := title + ": every method documented, and a console that calls it."
+	if cfg.Description != "" {
+		description = html.EscapeString(cfg.Description)
+	}
 	index := asset(Page)
 	for _, tag := range [][2]string{
 		{titleTag, "<title>" + title + "</title>"},
 		{brandTag, `<a class="brand" href="#/">` + title + `</a>`},
-		{descriptionTag, `<meta name="description" content="` + title + `: every method documented, and a console that calls it." />`},
+		{descriptionTag, `<meta name="description" content="` + description + `" />`},
 		{ogTitleTag, `<meta property="og:title" content="` + title + `" />`},
 	} {
 		index = bytes.Replace(index, []byte(tag[0]), []byte(tag[1]), 1)

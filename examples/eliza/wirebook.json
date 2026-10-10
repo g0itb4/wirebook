@@ -1,5 +1,6 @@
 {
   "title": "Eliza",
+  "description": "ConnectRPC's Eliza service, documented from its proto files and callable from this page. A demo of wirebook.",
   "environments": [{ "name": "demo.connectrpc.com", "baseUrl": "https://demo.connectrpc.com" }],
   "links": [
     { "label": "connectrpc/examples-go", "url": "https://github.com/connectrpc/examples-go" },

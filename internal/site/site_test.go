@@ -87,7 +87,7 @@ func TestFiles(t *testing.T) {
 		!strings.Contains(index, `<link rel="stylesheet" href="`+Name(Style)+`" />`) {
 		t.Error("a directory site loads its script and style from files, by their hashed names")
 	}
-	want := `{"id":"abc123","title":"Widgets \u003c\u0026\u003e \"API\"","roots":["a.proto"],"environments":[],"auth":[],"lookups":{},"links":[],"liveReload":false}`
+	want := `{"id":"abc123","title":"Widgets \u003c\u0026\u003e \"API\"","description":"","roots":["a.proto"],"environments":[],"auth":[],"lookups":{},"links":[],"liveReload":false}`
 	if string(files[Config]) != want {
 		t.Errorf("config = %s, want %s", files[Config], want)
 	}
@@ -159,6 +159,14 @@ func TestEachSiteDeclaresItsPolicy(t *testing.T) {
 	// A known vector: the hash of "abc".
 	if got := hash([]byte("abc")); got != "sha256-ungWv48Bz+pBQUDeXa4iI7ADYaOWF3qctBD/YfIAFa0=" {
 		t.Errorf("hash(abc) = %s", got)
+	}
+}
+
+func TestPageDescription(t *testing.T) {
+	described := config.File{Title: "Widgets", Description: `Widgets <&> "more"`}.Site("abc123", nil, false)
+	index := string(Files(img, described)[Page])
+	if want := `<meta name="description" content="Widgets &lt;&amp;&gt; &#34;more&#34;" />`; !strings.Contains(index, want) {
+		t.Errorf("the page's head lacks %s", want)
 	}
 }
 

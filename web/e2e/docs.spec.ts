@@ -175,7 +175,36 @@ test("every page names wirebook, and the site's own links", async ({ page }) => 
     "href",
     "https://github.com/g0itb4/wirebook",
   );
+  await expect(foot.getByRole("link", { name: "Report a wirebook bug" })).toHaveAttribute(
+    "href",
+    "https://github.com/g0itb4/wirebook/issues",
+  );
+  await expect(page.getByRole("banner").getByRole("link", { name: "wirebook source on GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/g0itb4/wirebook",
+  );
   await expect(foot.getByRole("link", { name: "Fixture docs" })).toHaveAttribute("href", "https://example.com/fixture");
+});
+
+test("the overview says what the page is, and how to use it", async ({ page }) => {
+  await open(page);
+  const main = page.locator("main");
+  await expect(main.getByText("Widgets and a library, behind every scheme, for the browser tests.")).toBeVisible();
+  const how = main.getByRole("region", { name: "How this page works" });
+  await expect(how.getByRole("listitem")).toHaveText([/^Read/, /^Fill/, /^Send/]);
+  await expect(how.getByRole("link", { name: "wirebook" })).toHaveAttribute(
+    "href",
+    "https://github.com/g0itb4/wirebook",
+  );
+});
+
+test("a page lists its sections, and a section's link leaves the address alone", async ({ page }) => {
+  await open(page, "#/fixture.v1.GetWidgetRequest");
+  const toc = page.getByRole("navigation", { name: "On this page" });
+  await expect(toc.getByRole("link")).toHaveText(["Fields", "Used by"]);
+  await toc.getByRole("link", { name: "Used by" }).click();
+  await expect(page).toHaveURL(/#\/fixture\.v1\.GetWidgetRequest$/);
+  await expect(page.getByRole("heading", { name: "Used by" })).toBeFocused();
 });
 
 test("a deprecated declaration is marked", async ({ page }) => {

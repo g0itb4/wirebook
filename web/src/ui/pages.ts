@@ -7,6 +7,9 @@ import type { Context } from "./context";
 import { block } from "./copy";
 import { badge, code, h, prose } from "./dom";
 
+/** Where wirebook lives. Every site says so, in its header and footer. */
+export const REPO = "https://github.com/g0itb4/wirebook";
+
 /** A page: what is read, and what stands beside it. */
 export interface Panes {
   reference: (HTMLElement | false)[];
@@ -239,6 +242,66 @@ function serviceCard(service: ServiceDoc): HTMLElement {
   );
 }
 
+/** What the page is for, in the three steps a visitor takes. */
+function howItWorks(): HTMLElement {
+  const step = (word: string, text: string): HTMLElement => h("li", null, h("strong", null, word), h("p", null, text));
+  return h(
+    "section",
+    { class: "how", "aria-labelledby": "how-head" },
+    h("h2", { id: "how-head", class: "visually-hidden" }, "How this page works"),
+    h(
+      "ol",
+      null,
+      step("Read", "Every service, method, message and enum, with the comments of its proto files."),
+      step("Fill", "A request body, as a form drawn from the schema, with the rules and examples it declares."),
+      step(
+        "Send",
+        "A real request, over Connect or REST, from your browser to the environment chosen at the top. Nothing is faked.",
+      ),
+    ),
+    h(
+      "p",
+      { class: "muted small" },
+      "Made with ",
+      h("a", { href: REPO, rel: "noopener" }, "wirebook"),
+      ": proto files in, an API explorer out.",
+    ),
+  );
+}
+
+/**
+ * The page's sections, as a line of links under its title, when there are
+ * two or more. A link scrolls to its heading and leaves the address alone:
+ * the address names the page.
+ */
+export function contents(pane: HTMLElement): void {
+  const headings = [...pane.querySelectorAll<HTMLHeadingElement>(":scope > h2:not(.visually-hidden)")];
+  // The home page's sections are the services, already in the menu.
+  const title = pane.querySelector(":scope > h1:not(.hero)");
+  if (headings.length < 2 || !title) return;
+  const items = headings.map((heading, i) => {
+    heading.id ||= `section-${i + 1}`;
+    heading.setAttribute("tabindex", "-1");
+    return h(
+      "li",
+      null,
+      h(
+        "a",
+        {
+          href: `#${heading.id}`,
+          onclick: (event: Event) => {
+            event.preventDefault();
+            heading.focus({ preventScroll: true });
+            heading.scrollIntoView({ block: "start" });
+          },
+        },
+        heading.textContent ?? "",
+      ),
+    );
+  });
+  title.after(h("nav", { class: "toc", "aria-label": "On this page" }, h("ol", null, items)));
+}
+
 export function home(context: Context): Panes {
   const index: Index = context.core.index;
   const own = packages(index).filter((group) => !group.imported);
@@ -250,13 +313,15 @@ export function home(context: Context): Panes {
   return {
     reference: [
       h("h1", { class: "hero" }, context.config.title),
-      services.length === 0
-        ? h("p", { class: "lead muted" }, "This schema declares no service. Its messages and enums are in the menu.")
-        : h(
-            "p",
-            { class: "lead" },
-            "Read every method, then call it from the page. Nothing is faked: each answer comes from the API.",
-          ),
+      context.config.description
+        ? h("p", { class: "lead" }, context.config.description)
+        : services.length === 0
+          ? h("p", { class: "lead muted" }, "This schema declares no service. Its messages and enums are in the menu.")
+          : h(
+              "p",
+              { class: "lead" },
+              "Read every method, then call it from the page. Nothing is faked: each answer comes from the API.",
+            ),
       h(
         "dl",
         { class: "stats", "aria-label": "What this schema declares" },
@@ -284,6 +349,7 @@ export function home(context: Context): Panes {
             index.problems.map((problem) => h("li", null, problem)),
           ),
         ),
+      services.length > 0 && howItWorks(),
       first !== undefined &&
         h(
           "section",

@@ -30,6 +30,7 @@ export function config(overrides: Partial<SiteConfig> = {}): SiteConfig {
   return {
     id: "fixture",
     title: "Fixture",
+    description: "",
     roots: ROOTS,
     environments: [],
     auth: [],

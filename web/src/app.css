@@ -420,6 +420,21 @@ p {
   text-overflow: ellipsis;
 }
 
+/* Where wirebook lives, at the end of the header. */
+.repo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.75rem;
+  color: var(--muted);
+  font-size: var(--t-ui);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.repo:hover {
+  color: var(--text);
+}
+
 .chip-label {
   color: var(--muted);
   font-size: var(--t-sm);
@@ -753,6 +768,66 @@ h1.hero {
   margin: 0;
   font: 600 var(--t-ui) / 1.5 var(--mono);
   color: var(--strong);
+}
+
+/* What the page is for: read, fill, send, side by side. */
+.how {
+  margin: 0 0 var(--s5);
+  max-width: var(--page);
+}
+
+.how ol {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--s3);
+  margin: 0 0 var(--s2);
+  padding: 0;
+  list-style: none;
+}
+
+.how li {
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.how strong {
+  font: 600 var(--t-base) / 1.4 var(--sans);
+  color: var(--strong);
+}
+
+.how li p {
+  margin: var(--s1) 0 0;
+  color: var(--muted);
+  font-size: var(--t-ui);
+}
+
+/* The page's sections, in a line under its title. */
+.toc ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--s4);
+  margin: 0 0 var(--s3);
+  padding: 0;
+  list-style: none;
+  font-size: var(--t-ui);
+}
+
+.toc li::before {
+  content: "#";
+  margin-right: var(--s1);
+  color: var(--muted);
+}
+
+.toc a {
+  display: inline-block;
+  min-height: 1.75rem;
+  line-height: 1.75rem;
+}
+
+.pane > h2 {
+  scroll-margin-top: calc(var(--top) + var(--s4));
 }
 
 .start {

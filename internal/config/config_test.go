@@ -103,6 +103,7 @@ func TestLoad(t *testing.T) {
 func TestSite(t *testing.T) {
 	file, err := Parse(strings.NewReader(`{
 		"title": "Widgets",
+		"description": " Widgets, made and sold. ",
 		"environments": [{"name": "local", "baseUrl": "http://localhost:8080"}],
 		"auth": [{"scheme": "bearer"}, {"scheme": "basic"}, {"scheme": "api-key", "name": "key", "location": "query"}],
 		"links": [{"label": " Docs ", "url": " https://docs.example/widgets#start "}]
@@ -111,7 +112,7 @@ func TestSite(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := file.Site("abc123", []string{"a.proto"}, true).JSON()
-	want := `{"id":"abc123","title":"Widgets","roots":["a.proto"],"environments":[{"name":"local","baseUrl":"http://localhost:8080"}],` +
+	want := `{"id":"abc123","title":"Widgets","description":"Widgets, made and sold.","roots":["a.proto"],"environments":[{"name":"local","baseUrl":"http://localhost:8080"}],` +
 		`"auth":[{"scheme":"bearer"},{"scheme":"basic","username":""},{"scheme":"api-key","name":"key","location":"query"}],"lookups":{},` +
 		`"links":[{"label":"Docs","url":"https://docs.example/widgets#start"}],"liveReload":true}`
 	if string(got) != want {
@@ -120,8 +121,25 @@ func TestSite(t *testing.T) {
 
 	// Nothing configured: lists, not nulls.
 	empty := File{Title: DefaultTitle}.Site("", nil, false).JSON()
-	if want := `{"id":"","title":"API explorer","roots":[],"environments":[],"auth":[],"lookups":{},"links":[],"liveReload":false}`; string(empty) != want {
+	if want := `{"id":"","title":"API explorer","description":"","roots":[],"environments":[],"auth":[],"lookups":{},"links":[],"liveReload":false}`; string(empty) != want {
 		t.Errorf("empty site = %s, want %s", empty, want)
+	}
+}
+
+func TestDescription(t *testing.T) {
+	refused := map[string]string{
+		`{"description": "one\ntwo"}`:                         "more than one line",
+		`{"description": "` + strings.Repeat("x", 281) + `"}`: "longer than 280 characters",
+	}
+	for input, want := range refused {
+		_, err := Parse(strings.NewReader(input))
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("Parse(%s) = %v, want an error with %q", input, err, want)
+		}
+	}
+	file, err := Parse(strings.NewReader(`{"description": "` + strings.Repeat("é", 280) + `"}`))
+	if err != nil || file.Description != strings.Repeat("é", 280) {
+		t.Errorf("Parse(280 characters) = %v, %v", file.Description, err)
 	}
 }
 

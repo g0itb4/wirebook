@@ -1,5 +1,6 @@
 {
   "title": "Fixture API",
+  "description": "Widgets and a library, behind every scheme, for the browser tests.",
   "environments": [
     { "name": "Direct, with CORS", "baseUrl": "http://127.0.0.1:18081" },
     { "name": "Direct, without CORS", "baseUrl": "http://127.0.0.1:18080" }

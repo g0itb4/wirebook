@@ -223,6 +223,8 @@ export interface SiteConfig {
   /** Which API this is: sites served from one address keep separate stores. */
   id: string;
   title: string;
+  /** One line on what the API is, for the home page. Empty when the config gives none. */
+  description: string;
   roots: string[];
   environments: { name: string; baseUrl: string; directUrl?: string; variables?: Variables }[];
   /** The list a field's value is picked from, where the convention finds none. */

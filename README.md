@@ -118,6 +118,7 @@ Optional. `wirebook.json`, next to `buf.yaml`:
 ```json
 {
   "title": "Widgets API",
+  "description": "Widgets, made to order and shipped.",
   "environments": [
     { "name": "local", "baseUrl": "http://localhost:8080", "variables": { "tenant": "acme" } },
     { "name": "staging", "baseUrl": "https://staging.example.com" }
@@ -131,6 +132,8 @@ Optional. `wirebook.json`, next to `buf.yaml`:
 }
 ```
 
+`description` is one line on what the API is, up to 280 characters: the home
+page shows it under the title, and it is the page's meta description.
 `auth` lists the schemes the API accepts; the console offers those. Without
 it, all four are offered. `variables` and `lookups` are explained under
 [the console](#the-console). `links` go in the page's footer, beside the
