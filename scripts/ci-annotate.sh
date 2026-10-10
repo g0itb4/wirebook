@@ -16,7 +16,11 @@ annotate() {
   echo "::error title=${title}::${text}"
 }
 
-grep -v 'Passed\|Skipped' "$log" | annotate "the tail of the output"
+if [ -s "$log" ]; then
+  grep -v 'Passed\|Skipped' "$log" | annotate "the tail of the output"
+else
+  echo "::error title=no log::the step that failed wrote no $log"
+fi
 { git status --short; git diff --stat; } | annotate "the working tree after it"
 if ! git diff --quiet -- internal/site/dist/core.wasm; then
   git show HEAD:internal/site/dist/core.wasm > "${TMPDIR:-/tmp}/committed.wasm"

@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 
 import { Core } from "../web/src/lib/core";
 
-const wasm = readFileSync("internal/site/dist/core.wasm");
+const wasm = readFileSync("web/src/gen/core_bg.wasm");
 const fixture = new Uint8Array(readFileSync("testdata/fixture.binpb"));
 const large = new Uint8Array(readFileSync("coverage/bench.binpb"));
 

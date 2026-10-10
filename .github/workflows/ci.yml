@@ -98,25 +98,13 @@ jobs:
         with:
           bun-version-file: package.json
       - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6 # v2
-      - name: Install wasm-bindgen and wasm-opt, each checked against its SHA-256
-        run: |
-          scripts/fetch-tool.sh \
-            "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-aarch64-apple-darwin.tar.gz" \
-            "$WASM_BINDGEN_SHA256_MACOS" \
-            "wasm-bindgen-${WASM_BINDGEN_VERSION}-aarch64-apple-darwin/wasm-bindgen" \
-            "$HOME/.local/bin"
-          scripts/fetch-tool.sh \
-            "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-arm64-macos.tar.gz" \
-            "$BINARYEN_SHA256_MACOS" \
-            "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt" \
-            "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      - run: bun install --frozen-lockfile
-      - run: just dist-check 2>&1 | tee check.log
+      # The tools, checked against their SHA-256, then the rebuild and the
+      # comparison; one log, annotated whole on a failure.
+      - run: scripts/module-check.sh 2>&1 | tee module.log
         shell: bash -o pipefail {0}
       - name: What failed, as annotations
         if: failure()
-        run: scripts/ci-annotate.sh check.log
+        run: scripts/ci-annotate.sh module.log
 
   # The built site, served by `wirebook serve`, in headless Chromium: every
   # transport with every authentication scheme, the accessibility scan, and

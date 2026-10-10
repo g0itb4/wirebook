@@ -13,7 +13,7 @@ import { Core } from "../web/src/lib/core";
 import type { Auth, Language, RequestSpec, Transport } from "../web/src/lib/types";
 
 const core = await Core.load(
-  readFileSync("internal/site/dist/core.wasm"),
+  readFileSync("web/src/gen/core_bg.wasm"),
   new Uint8Array(readFileSync("testdata/fixture.binpb")),
   { roots: [], lookups: {} },
 );

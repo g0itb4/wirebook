@@ -196,7 +196,7 @@ test: check e2e bench snippets
 # that is the schema loading, and each keystroke being validated.
 #
 # the speed of the core, against its budgets
-bench: dist
+bench: _glue
     @mkdir -p coverage
     go run ./cmd/benchimage
     bun scripts/bench.ts
@@ -206,7 +206,7 @@ bench: dist
 # awkward inputs, by giving each snippet to sh, node, python3 and go.
 #
 # the request as code, read by each language's own parser
-snippets: dist
+snippets: _glue
     bun scripts/snippet-check.ts
 
 # ── style ────────────────────────────────────────────────────────────────────
