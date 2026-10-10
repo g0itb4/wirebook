@@ -232,6 +232,8 @@ p {
   padding: 0.05rem var(--s2);
   border: 1px solid var(--edge);
   border-radius: var(--radius-sm);
+  /* A tint of the badge's own colour, so a row of them reads as chips. */
+  background: color-mix(in oklab, currentColor 10%, transparent);
   color: var(--text);
   font: 500 var(--t-xs)/1.5 var(--mono);
   letter-spacing: 0.02em;
@@ -319,6 +321,35 @@ p {
   margin-left: auto;
 }
 
+/* The keys that open the search, drawn on its right. */
+.keys {
+  position: absolute;
+  top: 50%;
+  right: var(--s2);
+  display: flex;
+  gap: var(--s1);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.key {
+  display: inline-block;
+  min-width: 1.25rem;
+  padding: 0 var(--s1);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  color: var(--muted);
+  font: var(--t-xs) / 1.4 var(--mono);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.search input {
+  padding-right: 5.5rem;
+}
+
 #hits {
   position: absolute;
   inset: 100% 0 auto 0;
@@ -333,10 +364,33 @@ p {
 }
 
 #hits li {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s3);
   padding: var(--s2) var(--s3);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  overflow-wrap: anywhere;
+}
+
+#hits li[role="presentation"] {
+  display: block;
+}
+
+.hit-text {
+  min-width: 0;
+}
+
+.hit-doc {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-sm);
+}
+
+.hit-page {
+  font-size: var(--t-sm);
 }
 
 #hits li:hover {
@@ -351,6 +405,25 @@ p {
 .hit-name {
   font-family: var(--mono);
   font-size: var(--t-code);
+  overflow-wrap: anywhere;
+}
+
+/* The environment, as a chip: the word small, the name in full, the dot. */
+.chip {
+  gap: var(--s1);
+  max-width: 18rem;
+  white-space: nowrap;
+}
+
+.chip strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-label {
+  color: var(--muted);
+  font-size: var(--t-sm);
+  font-weight: 500;
 }
 
 #menu {
@@ -1463,6 +1536,18 @@ dialog h2 {
     order: 5;
     flex-basis: 100%;
     max-width: none;
+  }
+
+  .keys {
+    display: none;
+  }
+
+  .search input {
+    padding-right: var(--s3);
+  }
+
+  .chip {
+    max-width: 11rem;
   }
 
   .layout {

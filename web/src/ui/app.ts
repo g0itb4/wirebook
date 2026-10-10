@@ -45,6 +45,7 @@ export function mount(root: HTMLElement, context: Context): void {
     id: "search",
     type: "search",
     role: "combobox",
+    placeholder: "Search",
     "aria-label": "Search the schema",
     "aria-controls": "hits",
     "aria-expanded": "false",
@@ -77,9 +78,15 @@ export function mount(root: HTMLElement, context: Context): void {
             },
           },
           badge(hit.kind),
-          " ",
-          h("span", { class: "hit-name" }, hit.name),
-          hit.doc !== "" && h("span", { class: "muted small" }, ` ${hit.doc}`),
+          h(
+            "span",
+            { class: "hit-text" },
+            h("span", { class: "hit-name" }, hit.name),
+            (hit.kind === "field" || hit.kind === "value") &&
+              h("span", { class: "hit-page muted" }, ` in ${context.short(hit.page)}`),
+            hit.doc !== "" && h("span", { class: "hit-doc muted" }, hit.doc),
+          ),
+          i === active && h("kbd", { class: "key", "aria-hidden": "true" }, "↵"),
         ),
       ),
     );
@@ -123,10 +130,22 @@ export function mount(root: HTMLElement, context: Context): void {
   search.addEventListener("focus", () => {
     if (search.value.trim() !== "") showHits();
   });
+  // The hints beside the search: the chord always works; the one key only
+  // while the setting allows it.
+  const chord = /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘K" : "Ctrl K";
+  const keyHint = h("kbd", { class: "key one-key", "aria-hidden": "true" }, "/");
+  const chordHint = h("kbd", { class: "key", "aria-hidden": "true" }, chord);
   document.addEventListener("keydown", (event) => {
     const typing =
       event.target instanceof HTMLElement && event.target.matches("input, textarea, select, [contenteditable]");
-    // A key alone can be set off by speech input: a setting turns it off.
+    // A chord cannot be set off by speech input, so it is always on.
+    if (event.key.toLowerCase() === "k" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
+      event.preventDefault();
+      search.focus();
+      search.select();
+      return;
+    }
+    // A key alone can be: a setting turns it off.
     if (!context.shortcuts) return;
     if (event.key === "/" && !typing && !event.metaKey && !event.ctrlKey && !event.altKey) {
       event.preventDefault();
@@ -135,7 +154,12 @@ export function mount(root: HTMLElement, context: Context): void {
   });
 
   // ── header ───────────────────────────────────────────────────────────────
-  const environmentButton = h("button", { type: "button", id: "environment", onclick: () => dialog.open() });
+  const environmentButton = h("button", {
+    type: "button",
+    id: "environment",
+    class: "chip",
+    onclick: () => dialog.open(),
+  });
   const menuButton = h(
     "button",
     { type: "button", id: "menu", "aria-controls": "nav", "aria-expanded": "false" },
@@ -150,13 +174,13 @@ export function mount(root: HTMLElement, context: Context): void {
     const unset = environment.auth.scheme !== "none" && context.secrets.get(environment) === "";
     replace(
       environmentButton,
-      "Environment: ",
+      h("span", { class: "chip-label" }, "Environment: "),
       h("strong", null, environment.name),
       // Filled: ready to send. Hollow: a credential is still to be set.
       h("span", { class: unset ? "dot unset" : "dot", "aria-hidden": "true" }),
       unset && h("span", { class: "visually-hidden" }, ", no credential yet"),
     );
-    search.placeholder = context.shortcuts ? "Search  ( / )" : "Search";
+    keyHint.hidden = !context.shortcuts;
   };
   context.onChange(showEnvironment);
   document.addEventListener("wirebook:environments", () => dialog.open());
@@ -345,7 +369,7 @@ export function mount(root: HTMLElement, context: Context): void {
       { class: "top" },
       menuButton,
       h("a", { class: "brand", href: "#/" }, config.title),
-      h("div", { class: "search", role: "search" }, search, hits),
+      h("div", { class: "search", role: "search" }, search, h("span", { class: "keys" }, keyHint, chordHint), hits),
       environmentButton,
     ),
     h("div", { class: "layout" }, nav, main),

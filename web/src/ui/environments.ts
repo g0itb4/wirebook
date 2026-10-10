@@ -429,7 +429,16 @@ export function environmentDialog(context: Context): { element: HTMLDialogElemen
           { class: "hint" },
           "Environments and the history of calls are kept in this browser only. A request body is kept without the fields its schema marks as sensitive; what else you typed into it is kept as typed.",
         ),
-        h("p", null, h("label", { class: "check" }, shortcuts, " Keyboard shortcuts of one key ( / for search)")),
+        h(
+          "p",
+          null,
+          h(
+            "label",
+            { class: "check" },
+            shortcuts,
+            " Keyboard shortcuts of one key ( / for search; ⌘K or Ctrl K always work)",
+          ),
+        ),
         h("p", null, h("label", { class: "check" }, keepBodies, " Keep request bodies in the history")),
         h("p", null, h("label", { class: "check" }, withBodies, " Include request bodies in an export")),
         h(

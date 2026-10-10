@@ -404,24 +404,27 @@ test.describe("the look", () => {
     expect(await animation(page)).toBe("none");
   });
 
-  test("the shortcut of one key can be turned off", async ({ page }) => {
+  test("the shortcut of one key can be turned off; the chord always works", async ({ page }) => {
     await open(page);
     const search = page.getByRole("combobox", { name: "Search the schema" });
-    await expect(search).toHaveAttribute("placeholder", /\//);
+    const oneKey = page.locator(".one-key");
+    await expect(oneKey).toBeVisible();
     await page.getByRole("button", { name: /^Environment:/ }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Keyboard shortcuts of one key").uncheck();
     await dialog.getByRole("button", { name: "Close" }).click();
-    await expect(search).toHaveAttribute("placeholder", "Search");
+    await expect(oneKey).toBeHidden();
     await page.locator("main").focus();
     await page.keyboard.press("/");
     await expect(search).not.toBeFocused();
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(search).toBeFocused();
     // And it stays off.
     await page.reload();
     await page.locator("main").focus();
     await page.keyboard.press("/");
     await expect(search).not.toBeFocused();
-    await expect(search).toHaveAttribute("placeholder", "Search");
+    await expect(oneKey).toBeHidden();
   });
 
   test("the environment says when it has no credential yet", async ({ page }) => {
