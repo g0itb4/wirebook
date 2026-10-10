@@ -64,22 +64,17 @@ jobs:
           pipx install "prek==${PREK_VERSION}"
           cargo install --locked cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION"
       - run: just gen
-      # The output goes to the job's summary as well, which the API shows
-      # without a token: a failure can be read from outside.
+      # The output is kept, and on a failure its tail becomes an annotation of
+      # the job, which the API shows without a token: readable from outside.
       - run: just check 2>&1 | tee check.log
         shell: bash -o pipefail {0}
-      - name: What failed, in the summary
+      - name: What failed, as annotations
         if: failure()
         run: |
-          {
-            echo '```'
-            grep -v 'Passed\|Skipped' check.log | tail -150
-            echo '```'
-            echo '```'
-            git status --short
-            git diff --stat
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          tail=$(grep -v 'Passed\|Skipped' check.log | tail -c 3800 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=just check, the tail::${tail}"
+          tree=$( { git status --short; git diff --stat; } | tail -c 3800 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+          echo "::error title=the working tree after the hooks::${tree}"
       - name: Scan the whole history for secrets
         run: just secrets
 
