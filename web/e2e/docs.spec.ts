@@ -9,8 +9,20 @@ test("the overview lists the services and their methods", async ({ page }) => {
   const main = page.locator("main");
   await expect(main.getByRole("link", { name: "fixture.v1.WidgetService" })).toBeVisible();
   await expect(main.getByRole("link", { name: "GetWidget", exact: true })).toBeVisible();
-  await expect(main.getByText("One widget by id. Has no side effects, so Connect allows GET.")).toBeVisible();
+  await expect(main.getByText("One widget by id. Has no side effects, so Connect allows GET.").first()).toBeVisible();
+  // What the schema declares, counted; and the first call to make.
+  const stats = main.getByRole("group", { name: "What this schema declares" }).or(main.locator(".stats"));
+  await expect(stats).toContainText("services");
+  await expect(stats).toContainText("methods");
+  const start = main.getByRole("region", { name: "Start here" });
+  await expect(start.getByLabel("The first call, as curl")).toContainText("curl");
+  await expect(start.getByLabel("The first call, as curl").locator(".tk-kw").first()).toHaveText("curl");
+  await start.getByRole("link", { name: /^Open / }).click();
+  await expect(page).toHaveURL(/#\/fixture\.v1\.\w+Service\/\w+$/);
+  await expect(page.getByRole("button", { name: /^Send/ })).toBeVisible();
+  await open(page);
   // The files of the site, with their syntax; the imports are not listed.
+  await main.getByText(/^Files \(\d+\)$/).click();
   const files = main.getByRole("table", { name: "The proto files this site documents" });
   await expect(files.getByRole("row", { name: /editions\.proto.*edition 2024/ })).toBeVisible();
   await expect(files.getByRole("row", { name: /library\.proto.*edition 2023/ })).toBeVisible();

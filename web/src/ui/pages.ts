@@ -1,7 +1,8 @@
 // The reference pages: home, service, message, enum. The method page, with
 // its console, is in console.ts.
+import { toAuth } from "../lib/environments";
 import { href, packages, shortName } from "../lib/route";
-import type { EnumDoc, FieldDoc, Index, MessageDoc, MethodDoc, ServiceDoc } from "../lib/types";
+import type { Auth, EnumDoc, FieldDoc, Index, MessageDoc, MethodDoc, ServiceDoc } from "../lib/types";
 import type { Context } from "./context";
 import { block } from "./copy";
 import { badge, code, h, prose } from "./dom";
@@ -162,23 +163,116 @@ function methodList(service: ServiceDoc): HTMLElement {
   );
 }
 
+/** Above this many methods, the home page lists services, not every method. */
+const INLINE_METHODS = 24;
+
+/** The method to try first: one that reads, and can be called from a browser. */
+function firstMethod(services: ServiceDoc[]): { service: ServiceDoc; method: MethodDoc } | undefined {
+  const callable = services.flatMap((service) =>
+    service.methods
+      .filter((method) => !method.clientStreaming && method.transports.length > 0)
+      .map((method) => ({ service, method })),
+  );
+  return (
+    callable.find(({ method }) => method.idempotency === "no_side_effects" && !method.serverStreaming) ??
+    callable.find(({ method }) => !method.serverStreaming) ??
+    callable[0]
+  );
+}
+
+/**
+ * The first method as a curl command, for the environment the page is set
+ * to. With its credential as a shell variable; or, before one is set and the
+ * scheme needs one, without authentication at all.
+ */
+function firstCall(context: Context, method: MethodDoc): string | undefined {
+  const environment = context.environment;
+  let baseUrl = environment.directUrl ?? environment.baseUrl;
+  if (baseUrl.startsWith("/")) baseUrl = location.origin + baseUrl;
+  const transport = method.transports.includes("connect-json") ? "connect-json" : method.transports[0]!;
+  const snippet = (auth: Auth): string =>
+    context.core.snippet(
+      {
+        method: method.path,
+        body: context.core.template(method.input, environment.variables),
+        transport,
+        binding: 0,
+        baseUrl,
+        headers: environment.headers,
+        variables: environment.variables,
+        auth,
+        timeoutMs: null,
+      },
+      "curl",
+      true,
+    );
+  for (const auth of [toAuth(environment.auth, context.secrets.get(environment)), { scheme: "none" } as const]) {
+    try {
+      return snippet(auth);
+    } catch {
+      // The next way, or none.
+    }
+  }
+  return undefined;
+}
+
+function stat(count: number, one: string, many: string): HTMLElement | false {
+  return count > 0 && h("div", null, h("dt", null, count === 1 ? one : many), h("dd", null, String(count)));
+}
+
+function serviceCard(service: ServiceDoc): HTMLElement {
+  const kinds = { read: 0, write: 0, stream: 0 };
+  for (const method of service.methods) kinds[kindOf(method).colour as keyof typeof kinds]++;
+  return h(
+    "li",
+    null,
+    h("h3", null, link(service.name, short(service.name)), service.deprecated && [" ", badge("deprecated", "warn")]),
+    h("p", { class: "doc-line muted" }, service.doc.split(/\n\s*\n/)[0] ?? ""),
+    h(
+      "p",
+      { class: "counts" },
+      `${service.methods.length} ${service.methods.length === 1 ? "method" : "methods"}`,
+      kinds.read > 0 && [" · ", h("span", { class: "tag read" }, "R"), ` ${kinds.read}`],
+      kinds.write > 0 && [" · ", h("span", { class: "tag write" }, "W"), ` ${kinds.write}`],
+      kinds.stream > 0 && [" · ", h("span", { class: "tag stream" }, "S"), ` ${kinds.stream}`],
+    ),
+  );
+}
+
 export function home(context: Context): Panes {
   const index: Index = context.core.index;
   const own = packages(index).filter((group) => !group.imported);
   const services = own.flatMap((group) => group.services);
+  const methods = services.reduce((n, service) => n + service.methods.length, 0);
   const files = index.files.filter((file) => !file.imported);
+  const first = firstMethod(services);
+  const call = first && firstCall(context, first.method);
   return {
     reference: [
-      h("h1", null, context.config.title),
+      h("h1", { class: "hero" }, context.config.title),
       services.length === 0
-        ? h("p", { class: "muted" }, "This schema declares no service. Its messages and enums are in the menu.")
+        ? h("p", { class: "lead muted" }, "This schema declares no service. Its messages and enums are in the menu.")
         : h(
             "p",
-            null,
-            `${services.length} ${services.length === 1 ? "service" : "services"}, `,
-            `${services.reduce((n, service) => n + service.methods.length, 0)} methods. `,
-            "Open a method to read it and to call it.",
+            { class: "lead" },
+            "Read every method, then call it from the page. Nothing is faked: each answer comes from the API.",
           ),
+      h(
+        "dl",
+        { class: "stats", "aria-label": "What this schema declares" },
+        stat(services.length, "service", "services"),
+        stat(methods, "method", "methods"),
+        stat(
+          own.reduce((n, group) => n + group.messages.length, 0),
+          "message",
+          "messages",
+        ),
+        stat(
+          own.reduce((n, group) => n + group.enums.length, 0),
+          "enum",
+          "enums",
+        ),
+      ),
       index.problems.length > 0 &&
         h(
           "div",
@@ -190,40 +284,75 @@ export function home(context: Context): Panes {
             index.problems.map((problem) => h("li", null, problem)),
           ),
         ),
-      ...services.flatMap((service) => [
-        h("h2", null, link(service.name), service.deprecated && [" ", badge("deprecated", "warn")]),
-        prose(service.doc),
-        methodList(service),
-      ]),
-      h("h2", null, "Files"),
-      h(
-        "div",
-        scrollBox("The proto files this site documents"),
+      first !== undefined &&
         h(
-          "table",
-          null,
-          h("caption", null, "The proto files this site documents"),
+          "section",
+          { class: "card start", "aria-labelledby": "start-head" },
+          h("div", { class: "card-head" }, h("h2", { id: "start-head" }, "Start here")),
           h(
-            "thead",
-            null,
+            "div",
+            { class: "card-body" },
             h(
-              "tr",
+              "p",
+              { class: "signature" },
+              h("code", null, `${short(first.service.name)}/${first.method.name}`),
+              " ",
+              methodBadges(first.method),
+            ),
+            prose(first.method.doc.split(/\n\s*\n/)[0] ?? ""),
+            call !== undefined &&
+              block(
+                "the command",
+                h("pre", { tabindex: "0", "aria-label": "The first call, as curl" }, code(call, "curl")),
+                () => call,
+              ),
+            h(
+              "p",
               null,
-              h("th", { scope: "col" }, "File"),
-              h("th", { scope: "col" }, "Package"),
-              h("th", { scope: "col" }, "Syntax"),
+              h("a", { class: "button primary", href: href(first.method.path) }, `Open ${first.method.name}`),
             ),
           ),
+        ),
+      ...(methods <= INLINE_METHODS
+        ? services.flatMap((service) => [
+            h("h2", null, link(service.name), service.deprecated && [" ", badge("deprecated", "warn")]),
+            prose(service.doc),
+            methodList(service),
+          ])
+        : [h("h2", null, "Services"), h("ul", { class: "grid", "aria-label": "Services" }, services.map(serviceCard))]),
+      h(
+        "details",
+        { class: "files" },
+        h("summary", null, `Files (${files.length})`),
+        h(
+          "div",
+          scrollBox("The proto files this site documents"),
           h(
-            "tbody",
+            "table",
             null,
-            files.map((file) =>
+            h("caption", null, "The proto files this site documents"),
+            h(
+              "thead",
+              null,
               h(
                 "tr",
                 null,
-                h("th", { scope: "row" }, h("code", null, file.name)),
-                h("td", null, h("code", null, file.package)),
-                h("td", null, /^\d+$/.test(file.edition) ? `edition ${file.edition}` : file.edition),
+                h("th", { scope: "col" }, "File"),
+                h("th", { scope: "col" }, "Package"),
+                h("th", { scope: "col" }, "Syntax"),
+              ),
+            ),
+            h(
+              "tbody",
+              null,
+              files.map((file) =>
+                h(
+                  "tr",
+                  null,
+                  h("th", { scope: "row" }, h("code", null, file.name)),
+                  h("td", null, h("code", null, file.package)),
+                  h("td", null, /^\d+$/.test(file.edition) ? `edition ${file.edition}` : file.edition),
+                ),
               ),
             ),
           ),

@@ -557,6 +557,121 @@ main.split {
 
 /* ── reference ─────────────────────────────────────────────────────────── */
 
+/* The home page: the title large, a line on what the page is for, the
+   counts, and the first call to make. */
+h1.hero {
+  font-size: var(--t-2xl);
+}
+
+.lead {
+  margin: 0 0 var(--s5);
+  max-width: var(--measure);
+  font-size: var(--t-md);
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  margin: 0 0 var(--s5);
+}
+
+.stats > div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  padding: var(--s1) var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.stats dt {
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+.stats dd {
+  margin: 0;
+  font: 600 var(--t-ui) / 1.5 var(--mono);
+  color: var(--strong);
+}
+
+.start {
+  margin: 0 0 var(--s6);
+}
+
+.start .signature {
+  margin: 0 0 var(--s2);
+  font-size: var(--t-base);
+}
+
+.start .signature code {
+  font-size: var(--t-base);
+  color: var(--strong);
+}
+
+.start .block {
+  margin: var(--s3) 0;
+}
+
+a.button {
+  text-decoration: none;
+}
+
+a.button.primary {
+  min-height: 2.5rem;
+  padding: 0 var(--s5);
+  background: var(--read);
+  border-color: var(--read);
+  color: var(--ground);
+  font-weight: 700;
+}
+
+/* Services as cards, when there are too many methods for one page. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--s3);
+  margin: var(--s3) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grid > li {
+  padding: var(--s3) var(--s4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.grid h3 {
+  overflow-wrap: anywhere;
+}
+
+.doc-line {
+  margin: var(--s1) 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.counts {
+  margin: var(--s1) 0 0;
+  color: var(--muted);
+  font: var(--t-sm) / 1.5 var(--mono);
+}
+
+details.files {
+  margin-top: var(--s6);
+}
+
+details.files > summary {
+  font: 600 var(--t-lg) / 1.3 var(--sans);
+  color: var(--strong);
+}
+
 .scroll {
   overflow-x: auto;
 }
