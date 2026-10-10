@@ -27,11 +27,16 @@
 }
 
 :root {
+  /* Grounds, from the page to what sits on it. */
   --ground: #0a0c0f;
   --panel: #11151a;
   --raised: #181d24;
-  --line: #232a33;
-  --edge: #3d4856;
+  --hover: #1f262f;
+  /* Lines: a hairline between things, an edge around a control (3:1). */
+  --line: #2a323d;
+  --edge: #5f6a78;
+  /* Text: a heading or a name, the body, and what matters less. */
+  --strong: #eef1f4;
   --text: #d7dce2;
   --muted: #8f98a5;
   --read: #45dcf2;
@@ -52,6 +57,22 @@
   --radius: 6px;
   --radius-sm: 4px;
   --top: 3.5rem;
+  /* One scale of type. Code and names in the mono are one step under the body. */
+  --t-xs: 0.6875rem;
+  --t-sm: 0.75rem;
+  --t-code: 0.8125rem;
+  --t-ui: 0.875rem;
+  --t-base: 0.9375rem;
+  --t-md: 1.0625rem;
+  --t-lg: 1.25rem;
+  --t-xl: 1.75rem;
+  --t-2xl: 2.25rem;
+  --lh-prose: 1.6;
+  --lh-code: 1.55;
+  --lh-tight: 1.2;
+  /* A line of reading, and the width of a page of reference. */
+  --measure: 44rem;
+  --page: 52rem;
   color-scheme: dark;
 }
 
@@ -67,7 +88,7 @@
 }
 
 html {
-  font: 0.9375rem/1.6 var(--sans);
+  font: var(--t-base) / var(--lh-prose) var(--sans);
   background: var(--ground);
   color: var(--text);
 }
@@ -103,7 +124,7 @@ textarea,
 input,
 select {
   font-family: var(--mono);
-  font-size: 0.8125rem;
+  font-size: var(--t-code);
 }
 
 pre {
@@ -116,7 +137,7 @@ pre {
   border-radius: var(--radius);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.55;
+  line-height: var(--lh-code);
 }
 
 h1,
@@ -129,20 +150,25 @@ h3 {
 
 h1 {
   margin: 0 0 var(--s3);
-  font-size: 1.75rem;
-  line-height: 1.25;
+  font-size: var(--t-xl);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.015em;
+  color: var(--strong);
   overflow-wrap: anywhere;
 }
 
 h2 {
   margin: var(--s6) 0 var(--s3);
-  font-size: 1.125rem;
-  line-height: 1.35;
+  font-size: var(--t-lg);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--strong);
 }
 
 h3 {
   margin: 0 0 var(--s1);
-  font-size: 1rem;
+  font-size: var(--t-md);
+  line-height: 1.35;
 }
 
 p {
@@ -154,7 +180,7 @@ p {
 }
 
 .small {
-  font-size: 0.8125rem;
+  font-size: var(--t-code);
 }
 
 .bad,
@@ -165,14 +191,14 @@ p {
 .kind {
   margin: 0 0 var(--s1);
   color: var(--muted);
-  font: 500 0.75rem/1.4 var(--mono);
+  font: 500 var(--t-sm)/1.4 var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 
 .doc p {
   white-space: pre-line;
-  max-width: 44rem;
+  max-width: var(--measure);
 }
 
 /* A tag: a word in a box. Its colour repeats what the word says. */
@@ -182,7 +208,7 @@ p {
   border: 1px solid var(--edge);
   border-radius: var(--radius-sm);
   color: var(--text);
-  font: 500 0.6875rem/1.5 var(--mono);
+  font: 500 var(--t-xs)/1.5 var(--mono);
   letter-spacing: 0.02em;
   white-space: nowrap;
   vertical-align: middle;
@@ -288,6 +314,10 @@ p {
   overflow-wrap: anywhere;
 }
 
+#hits li:hover {
+  background: var(--hover);
+}
+
 #hits li[aria-selected="true"] {
   background: var(--raised);
   box-shadow: inset 2px 0 0 var(--read);
@@ -295,7 +325,7 @@ p {
 
 .hit-name {
   font-family: var(--mono);
-  font-size: 0.8125rem;
+  font-size: var(--t-code);
 }
 
 #menu {
@@ -330,14 +360,14 @@ nav {
   overflow: auto;
   padding: var(--s4) var(--s3) var(--s6);
   border-right: 1px solid var(--line);
-  font: 0.8125rem/1.4 var(--mono);
+  font: var(--t-code)/1.4 var(--mono);
 }
 
 nav h2 {
   margin: var(--s4) 0 var(--s1);
   padding: 0 var(--s2);
   color: var(--muted);
-  font: 500 0.6875rem/1.4 var(--mono);
+  font: 500 var(--t-xs)/1.4 var(--mono);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -366,7 +396,7 @@ nav a {
 }
 
 nav a:hover {
-  background: var(--panel);
+  background: var(--raised);
 }
 
 nav a[aria-current="page"] {
@@ -425,7 +455,7 @@ main.split {
 
 /* A line of reading is as long as a line of a book. */
 .pane:not(.side) > * {
-  max-width: 52rem;
+  max-width: var(--page);
 }
 
 .pane.side {
@@ -458,7 +488,7 @@ main.split {
   gap: var(--s2) var(--s5);
   padding: var(--s4) 2.5rem;
   border-top: 1px solid var(--line);
-  font-size: 0.8125rem;
+  font-size: var(--t-code);
   color: var(--muted);
 }
 
@@ -477,7 +507,7 @@ main.split {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: var(--t-ui);
   line-height: 1.5;
 }
 
@@ -500,7 +530,7 @@ td {
 thead th {
   padding-top: 0;
   color: var(--muted);
-  font: 500 0.8125rem/1.5 var(--sans);
+  font: 500 var(--t-code)/1.5 var(--sans);
   border-bottom-color: var(--edge);
 }
 
@@ -535,7 +565,8 @@ td .doc p:first-child {
 
 .prop-name {
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: var(--t-ui);
+  color: var(--strong);
 }
 
 .prop-head .muted code {
@@ -570,7 +601,7 @@ td .doc p:first-child {
 .rules {
   margin: var(--s1) 0 0;
   color: var(--muted);
-  font: 0.8125rem/1.5 var(--mono);
+  font: var(--t-code)/1.5 var(--mono);
 }
 
 .links {
@@ -584,7 +615,7 @@ td .doc p:first-child {
   min-height: 1.75rem;
   line-height: 1.75rem;
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: var(--t-ui);
   overflow-wrap: anywhere;
 }
 
@@ -603,7 +634,7 @@ td .doc p:first-child {
 .rest {
   margin: var(--s1) 0;
   font-family: var(--mono);
-  font-size: 0.875rem;
+  font-size: var(--t-ui);
   overflow-wrap: anywhere;
 }
 
@@ -639,7 +670,7 @@ button,
   padding: 0 var(--s3);
   background: var(--raised);
   border: 1px solid var(--edge);
-  font: 500 0.875rem/1.2 var(--sans);
+  font: 500 var(--t-ui)/1.2 var(--sans);
   cursor: pointer;
 }
 
@@ -751,7 +782,7 @@ legend,
 .label {
   display: block;
   margin-bottom: var(--s1);
-  font: 500 0.875rem/1.5 var(--sans);
+  font: 500 var(--t-ui)/1.5 var(--sans);
   color: var(--text);
 }
 
@@ -762,7 +793,7 @@ legend,
 .hint {
   margin: var(--s1) 0 0;
   color: var(--muted);
-  font-size: 0.8125rem;
+  font-size: var(--t-code);
 }
 
 .check {
@@ -770,7 +801,7 @@ legend,
   align-items: center;
   gap: var(--s2);
   min-height: 1.75rem;
-  font-size: 0.875rem;
+  font-size: var(--t-ui);
 }
 
 /* Room around the box, so that a finger meant for it does not hit the field
@@ -814,7 +845,7 @@ fieldset {
   padding: 0 var(--s3);
   background: none;
   border-color: transparent;
-  font-size: 0.8125rem;
+  font-size: var(--t-code);
 }
 
 .tabs button[aria-pressed="true"] {
@@ -846,7 +877,7 @@ fieldset {
 .card-head h2,
 .card-head .label {
   margin: 0;
-  font: 600 0.9375rem/1.4 var(--sans);
+  font: 600 var(--t-base)/1.4 var(--sans);
   color: var(--text);
 }
 
@@ -920,18 +951,18 @@ details.card > :last-child {
 
 .f-head label,
 .f-name {
-  font: 600 0.875rem/1.5 var(--mono);
+  font: 600 var(--t-ui)/1.5 var(--mono);
 }
 
 .f-type {
   color: var(--muted);
-  font: 0.75rem/1.5 var(--mono);
+  font: var(--t-sm)/1.5 var(--mono);
 }
 
 .f-rules {
   margin: var(--s1) 0 0;
   color: var(--muted);
-  font: 0.75rem/1.5 var(--mono);
+  font: var(--t-sm)/1.5 var(--mono);
 }
 
 .f-control {
@@ -994,7 +1025,7 @@ details.card > :last-child {
 .f-warn {
   margin: var(--s1) 0 0;
   color: var(--stream);
-  font: 0.75rem/1.5 var(--mono);
+  font: var(--t-sm)/1.5 var(--mono);
 }
 
 .f-warn:empty {
@@ -1032,7 +1063,7 @@ details.card > :last-child {
   gap: var(--s3);
   padding: var(--s2) var(--s3);
   border-top: 1px solid var(--line);
-  font: 0.8125rem/1.5 var(--mono);
+  font: var(--t-code)/1.5 var(--mono);
   cursor: pointer;
   overflow-wrap: anywhere;
 }
@@ -1052,7 +1083,7 @@ details.card > :last-child {
 
 .verdict {
   margin: 0;
-  font: 0.8125rem/1.5 var(--mono);
+  font: var(--t-code)/1.5 var(--mono);
   min-height: 1.5em;
 }
 
@@ -1083,13 +1114,13 @@ details.card > :last-child {
   margin: var(--s1) 0 0;
   padding-left: var(--s4);
   color: var(--stream);
-  font: 0.8125rem/1.5 var(--mono);
+  font: var(--t-code)/1.5 var(--mono);
 }
 
 .target {
   margin: var(--s3) 0 0;
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--t-ui);
 }
 
 .target strong,
@@ -1108,7 +1139,7 @@ details.card > :last-child {
   align-items: center;
   gap: var(--s2);
   margin: 0;
-  font: 0.8125rem/1.5 var(--mono);
+  font: var(--t-code)/1.5 var(--mono);
 }
 
 .error:not(.badge) {
@@ -1121,7 +1152,7 @@ details.card > :last-child {
 
 .frames {
   padding-left: var(--s5);
-  font-size: 0.875rem;
+  font-size: var(--t-ui);
 }
 
 .history {
@@ -1138,7 +1169,7 @@ details.card > :last-child {
   gap: var(--s2);
   padding: var(--s2) 0;
   border-top: 1px solid var(--line);
-  font: 0.8125rem/1.5 var(--mono);
+  font: var(--t-code)/1.5 var(--mono);
 }
 
 dialog {

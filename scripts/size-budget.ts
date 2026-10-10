@@ -29,8 +29,10 @@ const BUDGET: Record<string, number> = {
   // the joined buttons of a choice. Measured: 4 456 before, 5 135 after.
   // Then lowered, from 5 200, once `just dist` minified the style:
   // 5 135 before, 3 766 after. Raised once, from 3 900, for the footer
-  // (`.foot`): 3 766 before, 3 903 after.
-  "app.css": 4_000,
+  // (`.foot`): 3 766 before, 3 903 after. Raised again, from 4 000, for the
+  // tokens of type and of colour (`--t-*`, `--strong`, `--hover`): 3 903
+  // before, 4 073 after.
+  "app.css": 4_200,
   // Raised once, from 480, for the preload of the core, the schema, the
   // config and the two fonts, and for the shell the page shows while the
   // core loads. Measured: 452 before, 625 after.
