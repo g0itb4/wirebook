@@ -11,11 +11,11 @@ scripts/fetch-tool.sh \
   "$WASM_BINDGEN_SHA256_MACOS" \
   "wasm-bindgen-${WASM_BINDGEN_VERSION}-aarch64-apple-darwin/wasm-bindgen" \
   "$bin"
-scripts/fetch-tool.sh \
-  "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-arm64-macos.tar.gz" \
-  "$BINARYEN_SHA256_MACOS" \
-  "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt" \
-  "$bin"
+# On macOS, wasm-opt is linked against ../lib/libbinaryen.dylib: the library
+# goes beside it, in the layout of the archive.
+binaryen="https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-arm64-macos.tar.gz"
+scripts/fetch-tool.sh "$binaryen" "$BINARYEN_SHA256_MACOS" "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt" "$bin"
+scripts/fetch-tool.sh "$binaryen" "$BINARYEN_SHA256_MACOS" "binaryen-version_${BINARYEN_VERSION}/lib/libbinaryen.dylib" "$HOME/.local/lib"
 export PATH="$bin:$PATH"
 wasm-bindgen --version
 wasm-opt --version

@@ -16,11 +16,12 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 curl -sSfL --proto '=https' --tlsv1.2 -o "$work/archive.tar.gz" "$url"
-# sha256sum on Linux; shasum on macOS.
-if command -v sha256sum >/dev/null; then
-  echo "$sha256  $work/archive.tar.gz" | sha256sum --check --quiet
-else
-  echo "$sha256  $work/archive.tar.gz" | shasum -a 256 --check --quiet
+# The hash is compared as text: shasum is on Linux and on macOS, and the
+# flags of sha256sum are not the same on both.
+actual="$(shasum -a 256 "$work/archive.tar.gz" | awk '{print $1}')"
+if [ "$actual" != "$sha256" ]; then
+  echo "$url: SHA-256 is $actual, want $sha256" >&2
+  exit 1
 fi
 tar -xzf "$work/archive.tar.gz" -C "$work" "$member"
 mkdir -p "$dir"
