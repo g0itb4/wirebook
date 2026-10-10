@@ -75,6 +75,13 @@ jobs:
           echo "::error title=just check, the tail::${tail}"
           tree=$( { git status --short; git diff --stat; } | tail -c 3800 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
           echo "::error title=the working tree after the hooks::${tree}"
+          # A core.wasm that differs: which strings, and which bytes, so the
+          # cause can be seen from outside.
+          if ! git diff --quiet -- internal/site/dist/core.wasm; then
+            git show HEAD:internal/site/dist/core.wasm > /tmp/committed.wasm
+            wasm=$( { diff <(strings -n 6 /tmp/committed.wasm) <(strings -n 6 internal/site/dist/core.wasm) | head -60; cmp -l /tmp/committed.wasm internal/site/dist/core.wasm | head -40; } | tail -c 3800 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=core.wasm, committed versus rebuilt::${wasm}"
+          fi
       - name: Scan the whole history for secrets
         run: just secrets
 
