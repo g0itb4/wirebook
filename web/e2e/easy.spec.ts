@@ -4,7 +4,19 @@
 import { type Page, expect, test } from "@playwright/test";
 
 import { API } from "../playwright.config";
-import { CREDENTIALS, TOKEN, body, configure, open, response, seen, send, stored, typeBody } from "./helpers";
+import {
+  CREDENTIALS,
+  GET_WIDGET,
+  TOKEN,
+  body,
+  configure,
+  open,
+  response,
+  seen,
+  send,
+  stored,
+  typeBody,
+} from "./helpers";
 
 const PROXY = "Proxy to 127.0.0.1:18080";
 const CREATE = "#/fixture.v1.CatalogService/CreateGadget";
@@ -314,6 +326,28 @@ test.describe("the look", () => {
     expect(fonts.sort()).toEqual(["200 /fonts/jetbrains-mono.woff2", "200 /fonts/space-grotesk.woff2"]);
     expect(await page.evaluate(() => document.fonts.check('1rem "JetBrains Mono"'))).toBe(true);
     expect(await page.evaluate(() => getComputedStyle(document.documentElement).colorScheme)).toBe("dark");
+  });
+
+  test("code is told apart by lightness, and every block can be copied", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await open(page, "#/fixture.v1.Widget");
+    const example = page.getByLabel("Example JSON");
+    await expect(example.locator(".tk-key").first()).toHaveText('"id"');
+    await page.getByRole("button", { name: "Copy the example" }).click();
+    await expect(page.getByRole("button", { name: "Copy the example" })).toHaveText(/Copied/);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('"id":');
+
+    await open(page, GET_WIDGET);
+    await configure(page, PROXY, CREDENTIALS.bearer!);
+    await typeBody(page, '{"id": "w1"}');
+    await send(page);
+    const body = response(page).getByLabel("Response body");
+    await expect(body.locator(".tk-key").first()).toHaveText('"widget"');
+    await expect(body.locator(".tk-str").first()).toHaveText('"w1"');
+    await response(page).getByRole("button", { name: "Copy the response" }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('"id": "w1"');
+    // The request as code is highlighted too, in each language.
+    await expect(page.getByLabel("The request as code").locator(".tk-kw").first()).toHaveText("curl");
   });
 
   test("the navigation says what each method does", async ({ page }) => {

@@ -498,6 +498,38 @@ main.split {
   padding: 3rem 2rem;
 }
 
+/* Code, told apart by lightness: a key or a keyword stands out, a value is
+   the text, punctuation and a comment step back. No colour: the palette's
+   colours are signals, and code signals nothing. */
+.tk-key,
+.tk-kw {
+  color: var(--strong);
+  font-weight: 500;
+}
+
+.tk-punct,
+.tk-cmt {
+  color: var(--muted);
+}
+
+/* A block of output and the button that copies it, in its corner. */
+.block {
+  position: relative;
+}
+
+.block > pre {
+  padding-right: 4.5rem;
+}
+
+.block > .copy {
+  position: absolute;
+  top: var(--s2);
+  right: var(--s2);
+  min-height: 1.75rem;
+  padding: 0 var(--s2);
+  font-size: var(--t-sm);
+}
+
 /* ── reference ─────────────────────────────────────────────────────────── */
 
 .scroll {

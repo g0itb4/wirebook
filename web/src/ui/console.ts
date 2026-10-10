@@ -6,7 +6,8 @@ import { type HistoryEntry, entry, keptBody, list, record } from "../lib/history
 import { MAX_FRAMES, type Outcome, outcomeLabel, send } from "../lib/send";
 import type { Frame, Language, MethodDoc, RequestSpec, RpcError, ServiceDoc, Transport } from "../lib/types";
 import type { Context } from "./context";
-import { badge, bytes, clip, h, pretty, prose, replace } from "./dom";
+import { block } from "./copy";
+import { badge, bytes, clip, code as highlighted, h, pretty, prose, replace } from "./dom";
 import { form as formView } from "./form";
 import { type Panes, fieldsTable, link, methodBadges, short } from "./pages";
 
@@ -60,7 +61,9 @@ function errorBox(error: RpcError): HTMLElement {
         h(
           "pre",
           { tabindex: "0" },
-          h("code", null, detail.value === null ? "This schema cannot decode it." : pretty(detail.value)),
+          detail.value === null
+            ? h("code", null, "This schema cannot decode it.")
+            : highlighted(pretty(detail.value), "json"),
         ),
       ),
     ),
@@ -69,14 +72,15 @@ function errorBox(error: RpcError): HTMLElement {
 
 function frameItem(frame: Frame): HTMLElement {
   if (frame.kind === "message")
-    return h("li", null, h("pre", { tabindex: "0" }, h("code", null, clip(pretty(frame.message)))));
+    return h("li", null, h("pre", { tabindex: "0" }, highlighted(clip(pretty(frame.message)), "json")));
   if (frame.kind === "invalid") return h("li", { class: "error" }, `A frame could not be read: ${frame.reason}`);
   const metadata = Object.keys(frame.metadata).length > 0;
   return h(
     "li",
     { class: "end" },
     frame.error ? errorBox(frame.error) : h("p", null, "End of the stream."),
-    metadata && h("pre", { tabindex: "0", "aria-label": "Trailing metadata" }, h("code", null, pretty(frame.metadata))),
+    metadata &&
+      h("pre", { tabindex: "0", "aria-label": "Trailing metadata" }, highlighted(pretty(frame.metadata), "json")),
   );
 }
 
@@ -302,7 +306,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     }
     shellHint.hidden = language !== "curl";
     try {
-      replace(code, h("code", null, snippet()));
+      replace(code, highlighted(snippet(), language));
     } catch {
       replace(code, h("code", { class: "muted" }, "Nothing, until the request can be built."));
     }
@@ -369,20 +373,21 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     // What will be sent, with the credential hidden.
     try {
       const { request } = core.request(spec());
+      const text = [
+        `${request.verb} ${request.redactedUrl}\n`,
+        ...request.headers.map((header) => `${header.name}: ${header.redacted ?? header.value}\n`),
+        request.bodyText !== null
+          ? `\n${request.bodyText}`
+          : request.verb === "GET" || request.verb === "HEAD" || request.verb === "DELETE"
+            ? ""
+            : "\n(binary body)",
+      ].join("");
       replace(
         preview,
-        h(
-          "pre",
-          { tabindex: "0", "aria-label": "Request" },
-          h("code", null, [
-            `${request.verb} ${request.redactedUrl}\n`,
-            ...request.headers.map((header) => `${header.name}: ${header.redacted ?? header.value}\n`),
-            request.bodyText !== null
-              ? `\n${request.bodyText}`
-              : request.verb === "GET" || request.verb === "HEAD" || request.verb === "DELETE"
-                ? ""
-                : "\n(binary body)",
-          ]),
+        block(
+          "the request",
+          h("pre", { tabindex: "0", "aria-label": "Request" }, highlighted(text, "http")),
+          () => text,
         ),
       );
       blocked.textContent = "";
@@ -456,6 +461,8 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
 
   const showOutcome = (outcome: Outcome): void => {
     const error = outcome.parsed?.error;
+    const message =
+      outcome.parsed?.ok === true && outcome.parsed.message !== null ? pretty(outcome.parsed.message) : null;
     answer(
       statusLine(outcome),
       outcome.failure && h("p", { class: "error", role: "alert" }, outcome.failure.message),
@@ -469,12 +476,11 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
       outcome.request.expect.framing === "stream" &&
         outcome.frames.length > 0 &&
         h("ol", { class: "frames" }, outcome.frames.map(frameItem)),
-      outcome.parsed?.ok === true &&
-        outcome.parsed.message !== null &&
-        h(
-          "pre",
-          { tabindex: "0", "aria-label": "Response body" },
-          h("code", null, clip(pretty(outcome.parsed.message))),
+      message !== null &&
+        block(
+          "the response",
+          h("pre", { tabindex: "0", "aria-label": "Response body" }, highlighted(clip(message), "json")),
+          () => message,
         ),
       outcome.status !== 0 &&
         h(
@@ -484,7 +490,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
           h(
             "pre",
             { tabindex: "0" },
-            h("code", null, outcome.headers.map(([name, value]) => `${name}: ${value}`).join("\n")),
+            highlighted(`\n${outcome.headers.map(([name, value]) => `${name}: ${value}`).join("\n")}`, "http"),
           ),
           h(
             "p",

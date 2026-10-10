@@ -3,7 +3,8 @@
 import { href, packages, shortName } from "../lib/route";
 import type { EnumDoc, FieldDoc, Index, MessageDoc, MethodDoc, ServiceDoc } from "../lib/types";
 import type { Context } from "./context";
-import { badge, h, prose } from "./dom";
+import { block } from "./copy";
+import { badge, code, h, prose } from "./dom";
 
 /** A page: what is read, and what stands beside it. */
 export interface Panes {
@@ -259,10 +260,14 @@ export function messagePage(context: Context, message: MessageDoc): Panes {
     ],
     side: [
       h("h2", null, "Example"),
-      h(
-        "pre",
-        { tabindex: "0", "aria-label": "Example JSON" },
-        h("code", null, context.core.template(message.name, {})),
+      block(
+        "the example",
+        h(
+          "pre",
+          { tabindex: "0", "aria-label": "Example JSON" },
+          code(context.core.template(message.name, {}), "json"),
+        ),
+        () => context.core.template(message.name, {}),
       ),
     ],
   };

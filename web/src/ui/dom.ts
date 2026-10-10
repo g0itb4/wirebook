@@ -1,5 +1,6 @@
 // A page built with the DOM's own calls. Text reaches the page only as text
 // nodes, never as markup: a comment in a proto file cannot inject anything.
+import { type Language, tokens } from "../lib/highlight";
 
 type Child = Node | string | number | null | undefined | false;
 type Attributes = Record<string, string | number | boolean | null | undefined | ((event: Event) => void)>;
@@ -40,6 +41,17 @@ export function prose(text: string, fallback?: string): HTMLElement {
     "div",
     { class: "doc" },
     text.split(/\n\s*\n/).map((paragraph) => h("p", null, paragraph)),
+  );
+}
+
+/** Code, with its pieces told apart by lightness: a `code` element of spans. */
+export function code(text: string, language: Language): HTMLElement {
+  return h(
+    "code",
+    null,
+    tokens(text, language).map((token) =>
+      token.kind === "text" ? token.text : h("span", { class: `tk-${token.kind}` }, token.text),
+    ),
   );
 }
 
