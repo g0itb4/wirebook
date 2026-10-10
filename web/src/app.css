@@ -450,7 +450,7 @@ p {
   grid-template-columns: 18rem minmax(0, 1fr);
 }
 
-nav {
+#nav {
   position: sticky;
   top: var(--top);
   align-self: start;
@@ -480,7 +480,7 @@ nav {
   display: none;
 }
 
-nav details.fold > summary {
+#nav details.fold > summary {
   display: flex;
   align-items: center;
   margin-top: var(--s3);
@@ -493,7 +493,7 @@ nav details.fold > summary {
   cursor: pointer;
 }
 
-nav h2 {
+#nav h2 {
   margin: var(--s4) 0 var(--s1);
   padding: 0 var(--s2);
   color: var(--muted);
@@ -502,19 +502,19 @@ nav h2 {
   letter-spacing: 0.1em;
 }
 
-nav ul {
+#nav ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-nav ul ul {
+#nav ul ul {
   padding-left: var(--s2);
   border-left: 1px solid var(--line);
   margin-left: var(--s3);
 }
 
-nav a {
+#nav a {
   display: flex;
   align-items: center;
   gap: var(--s2);
@@ -525,16 +525,16 @@ nav a {
   overflow-wrap: anywhere;
 }
 
-nav a:hover {
+#nav a:hover {
   background: var(--raised);
 }
 
-nav a[aria-current="page"] {
+#nav a[aria-current="page"] {
   background: var(--raised);
   box-shadow: inset 2px 0 0 var(--read);
 }
 
-nav a.deprecated {
+#nav a.deprecated {
   text-decoration: line-through;
   text-decoration-color: var(--muted);
 }
@@ -559,7 +559,7 @@ nav a.deprecated {
   color: var(--stream);
 }
 
-nav summary {
+#nav summary {
   margin-top: var(--s3);
   padding: var(--s1) var(--s2);
   font-weight: 700;
@@ -1667,7 +1667,7 @@ hr {
     display: block;
   }
 
-  nav {
+  #nav {
     display: none;
     position: static;
     max-height: none;
@@ -1675,7 +1675,7 @@ hr {
     border-bottom: 1px solid var(--line);
   }
 
-  .nav-open nav {
+  .nav-open #nav {
     display: block;
   }
 
