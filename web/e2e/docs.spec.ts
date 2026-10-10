@@ -31,12 +31,14 @@ test("the menu leads to a message, whose fields link to their types", async ({ p
     "page",
   );
 
-  const fields = page.getByRole("table", { name: "Fields of Widget" });
-  const serial = fields.getByRole("row", { name: /^serial/ });
+  const fields = page.getByRole("list", { name: "Fields of Widget" });
+  const serial = fields.getByRole("listitem").filter({ hasText: /^serial/ });
   await expect(serial).toContainText("int64");
   await expect(serial).toContainText("64-bit integers are strings in JSON.");
-  await expect(fields.getByRole("row", { name: /partsBySerial/ })).toContainText("map<int64, Widget.Part>");
-  await expect(fields.getByRole("row", { name: /salvagedFrom/ })).toContainText("oneof source");
+  await expect(fields.getByRole("listitem").filter({ hasText: /partsBySerial/ })).toContainText(
+    "map<int64, Widget.Part>",
+  );
+  await expect(fields.getByRole("listitem").filter({ hasText: /salvagedFrom/ })).toContainText("oneof source");
   await expect(page.getByLabel("Example JSON")).toContainText('"serial": "0"');
   // Who uses it: the messages that hold one, and through them the methods.
   const users = page.getByRole("list", { name: "Used by" });
@@ -107,6 +109,6 @@ test("a deprecated declaration is marked", async ({ page }) => {
   await open(page, "#/fixture.legacy.v1.OldThing");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("deprecated");
   await expect(
-    page.getByRole("table", { name: "Fields of OldThing" }).getByRole("row", { name: /title/ }),
+    page.getByRole("list", { name: "Fields of OldThing" }).getByRole("listitem").filter({ hasText: /title/ }),
   ).toContainText("deprecated");
 });

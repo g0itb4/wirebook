@@ -194,11 +194,15 @@ A change that touches any of these changes its test in the same commit.
   link survives a rebuild.
 - Every control has a label, every state a text (not only a colour), and a
   new page takes the focus. Tables that scroll sideways are focusable.
-- A target is 24 px high or has that much room, however dense the page.
+- A target is 24 px high or has that much room.
+- Room before rules: space comes from the scale on `:root` in
+  `web/src/app.css` (`--s1` to `--s6`), and a console's parts are sections
+  (`.card`), not lines and capitals.
 - One palette, dark, set once in `web/src/app.css`. Colour is signal: cyan
   reads, magenta writes, amber is a stream or a warning, green is ok, red is
-  an error; each with its word. No colour for decoration, no radius, no
-  shadow.
+  an error; each with its word. No colour for decoration. Corners take
+  `--radius` or `--radius-sm`; no shadow but the focus ring and the marks of
+  a selected item.
 - Monospace for names, types, values and code; the sans for headings and
   prose. Both fonts are files of the site.
 - One effect: an error status arrives with a 240 ms jolt, once, and not at

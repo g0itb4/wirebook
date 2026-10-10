@@ -18,8 +18,22 @@ authentication the API asks for, and shows what came back.
 - **A request without typing.** The body is a form drawn from the schema,
   with the rules and examples the protos declare. A field that names a
   resource gets a picker that lists real ids from the API.
-- **No server and no database.** The site is static files, or one HTML file.
-  What a visitor keeps (environments, history) stays in their browser.
+- **No backend of its own and no database.** The site is static files, or one
+  HTML file. What a visitor keeps (environments, history) stays in their
+  browser.
+
+## What it needs
+
+| To | You need |
+|---|---|
+| Read the documentation, fill in a body, see the request and its code | The proto files, and buf to compile them |
+| Send a request and see the answer | Your API, running and reachable |
+
+wirebook does not generate a server and does not fake answers. Every
+response on the page came from your API, so what works here works against
+it. `wirebook serve --target URL` forwards the page's calls to that API
+through a proxy on the page's own origin, so that the API needs no CORS rules
+while you work. A hosted site calls the API directly.
 
 ## Quick start
 
@@ -32,11 +46,10 @@ wirebook serve --target http://localhost:8080
 ```
 
 It builds the site, serves it on <http://127.0.0.1:9000>, rebuilds and
-reloads the page when a proto changes, and forwards `/proxy` to the API. The
-proxy is there because a browser may only read an answer from another origin
-when that origin allows it (CORS); through the proxy the page talks to its
-own origin. buf is run as `buf`; pass `--buf "bunx buf"` when that is how
-the repository runs it.
+reloads the page when a proto changes, and forwards `/proxy` to the API.
+Without `--target` the documentation works and Send has nowhere to go. buf
+is run as `buf`; pass `--buf "bunx buf"` when that is how the repository
+runs it.
 
 ### As a site to host
 

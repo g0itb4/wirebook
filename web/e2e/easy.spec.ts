@@ -18,14 +18,14 @@ const value = async (page: Page): Promise<Record<string, unknown>> =>
 
 test("the reference shows what the schema asks of each field", async ({ page }) => {
   await open(page, "#/fixture.v1.Gadget");
-  const fields = page.getByRole("table", { name: "Fields of Gadget" });
-  const rack = fields.getByRole("row", { name: /^rackId/ });
+  const fields = page.getByRole("list", { name: "Fields of Gadget" });
+  const rack = fields.getByRole("listitem").filter({ hasText: /^rackId/ });
   await expect(rack).toContainText("required");
   await expect(rack).toContainText("uuid");
   await expect(rack).toContainText("from ListRacks");
-  await expect(fields.getByRole("row", { name: /^title/ })).toContainText("1 to 40 characters");
-  await expect(fields.getByRole("row", { name: /^title/ })).toContainText("e.g. Sprocket");
-  await expect(fields.getByRole("row", { name: /^slots/ })).toContainText("≥ 1 · ≤ 3");
+  await expect(fields.getByRole("listitem").filter({ hasText: /^title/ })).toContainText("1 to 40 characters");
+  await expect(fields.getByRole("listitem").filter({ hasText: /^title/ })).toContainText("e.g. Sprocket");
+  await expect(fields.getByRole("listitem").filter({ hasText: /^slots/ })).toContainText("≥ 1 · ≤ 3");
   // The example beside it starts from the schema's examples.
   await expect(page.getByLabel("Example JSON")).toContainText('"title": "Sprocket"');
 });

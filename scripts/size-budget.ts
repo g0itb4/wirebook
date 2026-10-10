@@ -24,7 +24,10 @@ const BUDGET: Record<string, number> = {
   // pickers, the variables and the code in four languages, and for the
   // three-pane layout that shows them.
   "app.js": 24_000,
-  "app.css": 4_600,
+  // Raised once, from 4 600, for the roomier page: a scale of space, the
+  // console's sections (`.card`), the fields of a message as a list, and
+  // the joined buttons of a choice. Measured: 4 456 before, 5 135 after.
+  "app.css": 5_200,
   "index.html": 480,
 };
 

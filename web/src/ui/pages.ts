@@ -72,43 +72,25 @@ export function fieldsTable(message: MessageDoc, caption: string): HTMLElement {
   if (message.fields.length === 0) {
     return h("p", { class: "muted" }, `${short(message.name)} has no fields.`);
   }
+  // A list, not a table: a description has the whole width to itself, and a
+  // phone needs no sideways scroll.
   return h(
-    "div",
-    scrollBox(caption),
-    h(
-      "table",
-      null,
-      h("caption", null, caption),
+    "ul",
+    { class: "props", "aria-label": caption },
+    message.fields.map((field) =>
       h(
-        "thead",
+        "li",
         null,
         h(
-          "tr",
-          null,
-          h("th", { scope: "col" }, "Field"),
-          h("th", { scope: "col" }, "Type"),
-          h("th", { scope: "col" }, "No."),
-          h("th", { scope: "col" }, "Description"),
+          "div",
+          { class: "prop-head" },
+          h("code", { class: "prop-name" }, field.jsonName),
+          typeOf(field),
+          field.jsonName !== field.name && h("span", { class: "muted small" }, h("code", null, field.name)),
+          h("span", { class: "muted small" }, `#${field.number}`),
         ),
-      ),
-      h(
-        "tbody",
-        null,
-        message.fields.map((field) =>
-          h(
-            "tr",
-            null,
-            h(
-              "th",
-              { scope: "row" },
-              h("code", null, field.jsonName),
-              field.jsonName !== field.name && h("div", { class: "muted small" }, field.name),
-            ),
-            h("td", null, typeOf(field)),
-            h("td", null, field.number),
-            h("td", null, notes(field), prose(field.doc)),
-          ),
-        ),
+        h("div", { class: "notes" }, notes(field)),
+        prose(field.doc),
       ),
     ),
   );

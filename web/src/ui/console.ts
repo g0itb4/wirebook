@@ -181,7 +181,15 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   // Why the request cannot be sent, where the person looks: by the button.
   const blocked = h("p", { class: "bad", role: "status" });
   const preview = h("div", { class: "preview" });
-  const response = h("section", { class: "response", "aria-live": "polite", "aria-label": "Response" });
+  const response = h("section", { class: "response card", "aria-live": "polite", "aria-label": "Response" });
+  /** The response section: its status in the head, what came back under it. */
+  const answer = (status: HTMLElement | false, ...rest: (HTMLElement | false | null | undefined)[]): void => {
+    replace(
+      response,
+      h("div", { class: "card-head" }, h("h2", null, "Response"), status),
+      h("div", { class: "card-body" }, rest),
+    );
+  };
   const history = h("div", null);
 
   const choice = (): Choice => options[Number(transport.value)] ?? options[0]!;
@@ -222,7 +230,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   );
   const asForm = h("button", { type: "button", "aria-pressed": "false" }, "Form");
   const asJson = h("button", { type: "button", "aria-pressed": "false" }, "JSON");
-  const formatButton = h("button", { type: "button" }, "Format");
+  const formatButton = h("button", { type: "button", class: "ghost" }, "Format");
   const isObject = (): boolean => {
     const value = parseBody(body.value);
     return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -448,9 +456,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
 
   const showOutcome = (outcome: Outcome): void => {
     const error = outcome.parsed?.error;
-    replace(
-      response,
-      h("h2", null, "Response"),
+    answer(
       statusLine(outcome),
       outcome.failure && h("p", { class: "error", role: "alert" }, outcome.failure.message),
       error && errorBox(error),
@@ -499,7 +505,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   };
 
   const idle = (): void => {
-    replace(response, h("h2", null, "Response"), h("p", { class: "muted" }, "Nothing sent yet."));
+    answer(false, h("p", { class: "muted" }, "Nothing sent yet."));
   };
 
   const submit = async (event: Event): Promise<void> => {
@@ -509,12 +515,7 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     sendButton.disabled = true;
     cancelButton.hidden = false;
     const frames = h("ol", { class: "frames" });
-    replace(
-      response,
-      h("h2", null, "Response"),
-      h("p", { class: "status" }, badge(method.serverStreaming ? "listening" : "sending", "stream")),
-      frames,
-    );
+    answer(h("p", { class: "status" }, badge(method.serverStreaming ? "listening" : "sending", "stream")), frames);
     const sent = spec();
     const environment = context.environment;
     try {
@@ -549,9 +550,8 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
       );
       await showHistory();
     } catch (error) {
-      replace(
-        response,
-        h("h2", null, "Response"),
+      answer(
+        false,
         h("p", { class: "error glitch", role: "alert" }, error instanceof Error ? error.message : String(error)),
       );
     } finally {
@@ -577,38 +577,58 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   const form = h(
     "form",
     { class: "console", onsubmit: (event: Event) => void submit(event), novalidate: true },
-    target,
     // The button is at the top, where it stays in view however long the body is.
     h(
-      "div",
-      { class: "field" },
-      h("label", { for: "transport" }, "Send as"),
-      h("div", { class: "send" }, transport, sendButton, cancelButton),
+      "section",
+      { class: "card", "aria-labelledby": "request-head" },
+      h("div", { class: "card-head" }, h("h2", { id: "request-head" }, "Target")),
+      h(
+        "div",
+        { class: "card-body" },
+        h(
+          "div",
+          { class: "field" },
+          h("label", { for: "transport" }, "Send as"),
+          h("div", { class: "send" }, transport, sendButton, cancelButton),
+        ),
+        blocked,
+        target,
+      ),
     ),
-    blocked,
     h(
-      "div",
-      { class: "field" },
+      "section",
+      { class: "card", "aria-labelledby": "body-head" },
       h(
         "div",
-        { class: "bar" },
-        h("span", { class: "label" }, "Body"),
-        h("div", { class: "tabs", role: "group", "aria-label": "Edit the body as" }, asForm, asJson),
+        { class: "card-head" },
+        h("h2", { id: "body-head" }, "Body"),
+        h(
+          "div",
+          { class: "actions" },
+          h("div", { class: "tabs", role: "group", "aria-label": "Edit the body as" }, asForm, asJson),
+          h(
+            "button",
+            {
+              type: "button",
+              class: "ghost",
+              "aria-label": "Reset to the example",
+              onclick: () => setBody(example(), false),
+            },
+            "Reset",
+          ),
+          formatButton,
+        ),
       ),
-      fields.element,
-      notForm,
-      body,
-      verdict,
-      warnings,
-      h(
-        "div",
-        { class: "row" },
-        h("button", { type: "button", onclick: () => setBody(example(), false) }, "Reset to the example"),
-        formatButton,
-      ),
+      h("div", { class: "card-body" }, fields.element, notForm, body),
+      h("div", { class: "card-foot" }, verdict, warnings),
     ),
-    timeoutField,
-    h("p", { class: "hint" }, "Ctrl+Enter or ⌘+Enter sends."),
+    h(
+      "details",
+      { class: "card" },
+      h("summary", null, "Options"),
+      timeoutField,
+      h("p", { class: "hint" }, "Ctrl+Enter or ⌘+Enter sends."),
+    ),
   );
   form.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -627,26 +647,34 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     panes: {
       reference,
       side: [
-        h("h2", null, "Console"),
+        h("h2", { class: "visually-hidden" }, "Console"),
         form,
         response,
         h(
-          "details",
-          { class: "code", open: true },
-          h("summary", null, "The request as code"),
-          h("div", { class: "tabs", role: "group", "aria-label": "Language" }, languageButtons),
-          code,
+          "section",
+          { class: "card code", "aria-labelledby": "code-head" },
           h(
             "div",
-            { class: "row" },
-            h("button", { type: "button", onclick: () => void copyCode() }, "Copy"),
-            h("label", { class: "check" }, withSecret, " include the credential"),
-            copied,
+            { class: "card-head" },
+            h("h2", { id: "code-head" }, "Code"),
+            h("div", { class: "tabs", role: "group", "aria-label": "Language" }, languageButtons),
           ),
-          shellHint,
+          h(
+            "div",
+            { class: "card-body" },
+            code,
+            h(
+              "div",
+              { class: "row" },
+              h("button", { type: "button", onclick: () => void copyCode() }, "Copy"),
+              h("label", { class: "check" }, withSecret, " include the credential"),
+              copied,
+            ),
+            shellHint,
+          ),
         ),
-        h("details", null, h("summary", null, "What will be sent"), preview),
-        h("details", { class: "past" }, h("summary", null, "Earlier calls of this method"), history),
+        h("details", { class: "card" }, h("summary", null, "What will be sent"), preview),
+        h("details", { class: "card past" }, h("summary", null, "Earlier calls of this method"), history),
       ],
     },
     dispose() {

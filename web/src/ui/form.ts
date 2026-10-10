@@ -165,7 +165,6 @@ export function form(context: Context, options: FormOptions): Form {
       single ? h("label", { for: id }, field.jsonName) : h("span", { class: "f-name" }, field.jsonName),
       h("span", { class: "f-type" }, typeLabel(field)),
       (field.required || field.presence === "required") && badge("required", "write"),
-      rules.length > 0 && h("span", { class: "f-type" }, rules.join(" · ")),
     );
     let body: (HTMLElement | false)[];
 
@@ -249,7 +248,9 @@ export function form(context: Context, options: FormOptions): Form {
     } else {
       body = [h("div", { class: "f-control" }, control(owner, field, path, id, field.jsonName))];
     }
-    return h("div", { class: "f" }, head, body, warning);
+    // The rules under the control, so the line of the name stays short.
+    const said = rules.length > 0 && h("p", { class: "f-rules" }, rules.join(" · "));
+    return h("div", { class: "f" }, head, body, said, warning);
   };
 
   /** A message inside the body: a button to put it there, then its fields. */
