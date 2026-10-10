@@ -112,7 +112,7 @@ impl Explorer {
             .and_then(|message| codec::to_value(&message));
         let violations = body.map_or_else(
             |_| Vec::new(),
-            |body| rules::check(self.schema.pool(), index, &body),
+            |body| rules::check(&self.schema, index, &body),
         );
         Ok(to_json(&violations))
     }

@@ -169,12 +169,13 @@ pub fn build(schema: &Schema, spec: &RequestSpec) -> Result<HttpRequest> {
                 Codec::Proto
             };
             let payload = match codec {
-                Codec::Json => json.to_string().into_bytes(),
+                Codec::Json => {
+                    let text = json.to_string();
+                    body_text = Some(text.clone());
+                    text.into_bytes()
+                }
                 Codec::Proto => codec::to_wire(&message),
             };
-            if codec == Codec::Json {
-                body_text = Some(json.to_string());
-            }
             // A stream is a sequence of enveloped messages, the request too.
             let (framing, media, payload) = if stream {
                 (Framing::Stream, "connect+", envelope(&payload))

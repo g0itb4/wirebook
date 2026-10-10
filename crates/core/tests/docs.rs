@@ -5,7 +5,9 @@ mod common;
 use buffa::Message;
 use buffa_descriptor::generated::descriptor::source_code_info::Location;
 use buffa_descriptor::generated::descriptor::{
-    DescriptorProto, FileDescriptorProto, FileDescriptorSet, SourceCodeInfo,
+    DescriptorProto, EnumDescriptorProto, EnumValueDescriptorProto, FieldDescriptorProto,
+    FileDescriptorProto, FileDescriptorSet, MethodDescriptorProto, ServiceDescriptorProto,
+    SourceCodeInfo,
 };
 use common::{named, parse};
 use serde_json::{Value, json};
@@ -489,6 +491,132 @@ fn a_file_without_a_package_names_its_types_bare() {
             "doc": "Bare, with no package.", "deprecated": false, "rules": [], "fields": []
         }])
     );
+}
+
+/// A file made by hand: one message with a field, one enum with a value,
+/// one service with a method, and a comment at each of `paths`.
+fn commented(message: &str, field: &str, paths: &[&[i32]]) -> Vec<u8> {
+    let location = |path: &&[i32]| Location {
+        path: path.to_vec(),
+        leading_comments: Some(format!(" At {path:?}.\n")),
+        ..Default::default()
+    };
+    let file = FileDescriptorProto {
+        name: Some("made.proto".to_string()),
+        package: Some("made".to_string()),
+        syntax: Some("proto3".to_string()),
+        message_type: vec![DescriptorProto {
+            name: Some(message.to_string()),
+            field: vec![FieldDescriptorProto {
+                name: Some(field.to_string()),
+                number: Some(1),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        enum_type: vec![EnumDescriptorProto {
+            name: Some("Kind".to_string()),
+            value: vec![EnumValueDescriptorProto {
+                name: Some("KIND_ZERO".to_string()),
+                number: Some(0),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        service: vec![ServiceDescriptorProto {
+            name: Some("Maker".to_string()),
+            method: vec![MethodDescriptorProto {
+                name: Some("Make".to_string()),
+                input_type: Some(format!(".made.{message}")),
+                output_type: Some(format!(".made.{message}")),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        source_code_info: SourceCodeInfo {
+            location: paths.iter().map(location).collect(),
+            ..Default::default()
+        }
+        .into(),
+        ..Default::default()
+    };
+    let set = FileDescriptorSet {
+        file: vec![file],
+        ..Default::default()
+    };
+    set.encode_to_vec()
+}
+
+#[test]
+fn a_comment_on_what_is_not_a_declaration_is_not_kept() {
+    // A declaration of every kind, and then what protoc also writes a
+    // location for: an option, a name, a type; and paths that lead nowhere.
+    let declarations: [(&[i32], &str); 6] = [
+        (&[4, 0], "made.Thing"),
+        (&[4, 0, 2, 0], "made.Thing.size"),
+        (&[5, 0], "made.Kind"),
+        (&[5, 0, 2, 0], "made.Kind.KIND_ZERO"),
+        (&[6, 0], "made.Maker"),
+        (&[6, 0, 2, 0], "made.Maker.Make"),
+    ];
+    let others: [&[i32]; 14] = [
+        &[],
+        &[2],
+        &[4],
+        &[4, 0, 1],
+        &[4, 0, 2, 0, 1],
+        &[4, 0, 7, 0],
+        &[5, 0, 3],
+        &[5, 0, 2, 0, 3],
+        &[6, 0, 3],
+        &[6, 0, 2, 0, 4],
+        // No such message, enum value or method; and an index below zero.
+        &[4, 1],
+        &[5, 0, 2, 1],
+        &[6, 0, 2, 1],
+        &[4, -1],
+    ];
+    let mut paths: Vec<&[i32]> = others.to_vec();
+    paths.extend(declarations.iter().map(|(path, _)| *path));
+    let schema = Schema::load(&commented("Thing", "size", &paths)).unwrap();
+    for (path, name) in declarations {
+        assert_eq!(schema.doc(name), format!("At {path:?}."), "{name}");
+    }
+    // Nothing else has a comment: not the package, nor a name made of less.
+    for name in ["made", "", "made.Thing.", "made.Kind.", "made.Maker."] {
+        assert_eq!(schema.doc(name), "", "{name:?}");
+    }
+}
+
+#[test]
+fn search_finds_a_name_outside_ascii_in_any_case() {
+    // buf would not write these names; a set made by hand can hold them.
+    let image = commented("Größe", "ÄNDERUNG", &[]);
+    let explorer = Explorer::new(&image, "{}").unwrap();
+    let names = |query: &str| -> Vec<String> {
+        let hits = parse(&explorer.search(query, 10));
+        let names = hits.as_array().unwrap().iter();
+        names
+            .map(|hit| hit["name"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(names("GRÖSSE"), Vec::<String>::new());
+    assert_eq!(names("größe"), ["made.Größe", "made.Größe.ÄNDERUNG"]);
+    assert_eq!(names("GRÖ"), ["made.Größe", "made.Größe.ÄNDERUNG"]);
+    assert_eq!(names("änderung"), ["made.Größe.ÄNDERUNG"]);
+    assert_eq!(names("Änder"), ["made.Größe.ÄNDERUNG"]);
+    assert_eq!(names("sse.änd"), Vec::<String>::new());
+    assert_eq!(names("ße.änd"), ["made.Größe.ÄNDERUNG"]);
+    // An ASCII name is found the same way, a dot between its two parts too.
+    assert_eq!(names("kind.kind"), ["made.Kind.KIND_ZERO"]);
+    assert_eq!(names("ND.KIND_z"), ["made.Kind.KIND_ZERO"]);
+    assert_eq!(names("kind"), ["made.Kind", "made.Kind.KIND_ZERO"]);
+    // No more than asked for, and the best of them.
+    assert_eq!(names("m").len(), 6);
+    let best = |limit: usize| parse(&explorer.search("m", limit));
+    assert_eq!(best(0), json!([]));
+    assert_eq!(best(1)[0]["name"], "made.Maker");
+    assert_eq!(best(2)[1]["name"], "made.Maker/Make");
 }
 
 #[test]

@@ -243,8 +243,9 @@ On the development machine (Apple silicon), 2 October 2026. `just size`,
 | Site, gzipped: core.wasm + app.js + app.css + index.html | 296 kB (269 + 22 + 4.5 + 0.5) |
 | The two fonts (WOFF2, Latin) | 63 kB (40 + 22) |
 | Compile the core and load a 362 kB schema | 30 ms |
-| Load and index a schema of 2,000 messages (2.3 MB) | 77 ms |
-| Search that schema | 5 ms |
+| Load and index a schema of 2,000 messages (2.3 MB) | 68 ms |
+| Search that schema | 2 ms |
+| Check a body of 200 messages against the rules of the schema | 2 ms |
 | Validate a body, or build a request | 0.01 ms |
 | Codec against protobuf-go | 15 cases, identical wire bytes and JSON |
 | Line coverage, Rust core | 100% |

@@ -5,13 +5,10 @@
 //! is named as the field, from the example its schema gives, or from its
 //! zero value.
 
-use std::sync::Arc;
-
-use buffa_descriptor::{DescriptorPool, FieldKind, MessageIndex, ScalarType, SingularKind};
+use buffa_descriptor::{FieldKind, MessageIndex, ScalarType, SingularKind};
 use serde_json::{Map, Value, json};
 
 use crate::error::Result;
-use crate::rules;
 use crate::schema::Schema;
 use crate::vars::Variables;
 
@@ -19,19 +16,19 @@ use crate::vars::Variables;
 /// accepts once its variables are replaced.
 pub fn template(schema: &Schema, message: &str, variables: &Variables) -> Result<Value> {
     let index = schema.message_index(message)?;
-    Ok(of_message(schema.pool(), index, variables, &mut Vec::new()).unwrap_or(json!({})))
+    Ok(of_message(schema, index, variables, &mut Vec::new()).unwrap_or(json!({})))
 }
 
 /// `None` for a message with no useful example: `Any`, whose body depends on
 /// a type the template cannot choose, and a message already being built
 /// further up, which would never end.
 fn of_message(
-    pool: &Arc<DescriptorPool>,
+    schema: &Schema,
     index: MessageIndex,
     variables: &Variables,
     open: &mut Vec<MessageIndex>,
 ) -> Option<Value> {
-    let descriptor = pool.message(index);
+    let descriptor = schema.pool().message(index);
     if let Some(known) = well_known(descriptor.full_name()) {
         return known;
     }
@@ -58,16 +55,18 @@ fn of_message(
             kind if kind == string && variables.contains_key(field.json_name()) => {
                 Some(json!(format!("{{{{{}}}}}", field.json_name())))
             }
-            FieldKind::Singular(element) => rules::of_field(pool, field)
+            FieldKind::Singular(element) => schema
+                .rules(index, field)
                 .example
-                .or_else(|| of_element(pool, element, variables, open)),
+                .clone()
+                .or_else(|| of_element(schema, element, variables, open)),
             FieldKind::List(element) => Some(Value::Array(
-                of_element(pool, element, variables, open)
+                of_element(schema, element, variables, open)
                     .into_iter()
                     .collect(),
             )),
             FieldKind::Map { key, value } => {
-                let entry = of_element(pool, value, variables, open)
+                let entry = of_element(schema, value, variables, open)
                     .map(|value| (map_key(key).to_string(), value));
                 Some(Value::Object(entry.into_iter().collect()))
             }
@@ -81,19 +80,20 @@ fn of_message(
 }
 
 fn of_element(
-    pool: &Arc<DescriptorPool>,
+    schema: &Schema,
     element: SingularKind,
     variables: &Variables,
     open: &mut Vec<MessageIndex>,
 ) -> Option<Value> {
     match element {
         SingularKind::Scalar(scalar) => Some(of_scalar(scalar)),
-        SingularKind::Enum(index) => pool
+        SingularKind::Enum(index) => schema
+            .pool()
             .enumeration(index)
             .values()
             .first()
             .map(|value| json!(value.name())),
-        SingularKind::Message(index) => of_message(pool, index, variables, open),
+        SingularKind::Message(index) => of_message(schema, index, variables, open),
     }
 }
 

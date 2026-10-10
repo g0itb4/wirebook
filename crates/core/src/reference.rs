@@ -142,14 +142,15 @@ pub fn of_method(schema: &Schema, service: &str, method: &MethodDescriptor) -> O
 
     // What the list refuses to do without: found by asking the rules about
     // an empty request.
-    let refused = rules::check(pool, method.input(), &json!({}));
+    let refused = rules::check(schema, method.input(), &json!({}));
     let params = input
         .fields()
         .iter()
         .filter(|field| !matches!(field.name(), "page_size" | "page_token"));
     let page_size = input.field_by_name("page_size").map(|field| {
         // No more than the list allows.
-        let most = rules::of_field(pool, field)
+        let most = schema
+            .rules(method.input(), field)
             .most()
             .map_or(PAGE, |most| most.min(PAGE));
         (field.json_name().to_string(), most)

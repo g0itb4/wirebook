@@ -6,6 +6,7 @@
 //! A pattern or a CEL expression is shown and left to the server. The server
 //! is the authority in any case; this is a warning, never a refusal.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use buffa::editions::FieldPresence;
@@ -15,7 +16,7 @@ use buffa_descriptor::{
 use serde::Serialize;
 use serde_json::{Value, json};
 
-use crate::schema;
+use crate::schema::{self, Schema};
 
 /// What a schema says of one field.
 #[derive(Debug, Default)]
@@ -52,10 +53,43 @@ pub struct Violation {
     pub message: String,
 }
 
-pub fn of_field(pool: &Arc<DescriptorPool>, field: &FieldDescriptor) -> FieldRules {
-    let Some(rule) = schema::option(pool, field.options(), "buf.validate.field") else {
-        return FieldRules::default();
-    };
+/// What a field without rules says.
+static NONE: FieldRules = FieldRules {
+    required: false,
+    texts: Vec::new(),
+    example: None,
+    ignore_unset: false,
+    ignore_always: false,
+    of_type: Value::Null,
+};
+
+/// The rules of every field that has any, read once, when the schema is
+/// loaded. To read them is to decode the field's options, and they are asked
+/// for at every keystroke, of every field of a body.
+pub struct Table(BTreeMap<(MessageIndex, u32), FieldRules>);
+
+impl Table {
+    pub fn new(pool: &Arc<DescriptorPool>) -> Self {
+        let mut table = BTreeMap::new();
+        for message in pool.messages() {
+            for field in message.fields() {
+                if let Some(rules) = of_field(pool, field)
+                    && let Some(index) = pool.message_index(message.full_name())
+                {
+                    table.insert((index, field.number()), rules);
+                }
+            }
+        }
+        Self(table)
+    }
+
+    pub fn of(&self, message: MessageIndex, field: &FieldDescriptor) -> &FieldRules {
+        self.0.get(&(message, field.number())).unwrap_or(&NONE)
+    }
+}
+
+fn of_field(pool: &Arc<DescriptorPool>, field: &FieldDescriptor) -> Option<FieldRules> {
+    let rule = schema::option(pool, field.options(), "buf.validate.field")?;
     let ignore = rule["ignore"].as_str().unwrap_or("");
     // One rule object per type: `string`, `int32`, `repeated`, and so on.
     let (type_name, of_type) = rule
@@ -84,7 +118,7 @@ pub fn of_field(pool: &Arc<DescriptorPool>, field: &FieldDescriptor) -> FieldRul
     }
     describe(&rules.of_type, unit, &mut rules.texts);
     rules.texts.extend(cel(&rule));
-    rules
+    Some(rules)
 }
 
 /// The rules of a message as a whole: the messages of its CEL expressions.
@@ -200,19 +234,20 @@ fn describe(rule: &Value, length_unit: &str, texts: &mut Vec<String>) {
 }
 
 /// The rules a body does not meet, of those the core can decide.
-pub fn check(pool: &Arc<DescriptorPool>, message: MessageIndex, body: &Value) -> Vec<Violation> {
+pub fn check(schema: &Schema, message: MessageIndex, body: &Value) -> Vec<Violation> {
     let mut out = Vec::new();
-    walk(pool, message, body, "", &mut out);
+    walk(schema, message, body, "", &mut out);
     out
 }
 
 fn walk(
-    pool: &Arc<DescriptorPool>,
+    schema: &Schema,
     message: MessageIndex,
     body: &Value,
     prefix: &str,
     out: &mut Vec<Violation>,
 ) {
+    let pool = schema.pool();
     let descriptor = pool.message(message);
     // A well-known type is not written with the fields of its message.
     let own_fields = !descriptor.full_name().starts_with("google.protobuf.");
@@ -220,28 +255,31 @@ fn walk(
         return;
     };
     for field in descriptor.fields() {
-        let path = format!("{prefix}{}", field.json_name());
-        let rules = of_field(pool, field);
-        let set = object.get(field.json_name());
+        let name = field.json_name();
+        let rules = schema.rules(message, field);
+        let set = object.get(name);
         if rules.ignore_always {
             continue;
         }
         if rules.required && set.is_none() {
             out.push(Violation {
-                path,
+                path: format!("{prefix}{name}"),
                 message: "is required".to_string(),
             });
             continue;
         }
         // A field without presence always has a value: unset, it is zero,
         // and its rules apply to that, unless it says to ignore it.
-        let zero = zero(pool, field).filter(|_| !rules.ignore_unset);
+        let zero = match set {
+            None if !rules.ignore_unset => zero(pool, field),
+            _ => None,
+        };
         let Some(value) = set.or(zero.as_ref()) else {
             continue;
         };
         let broken = violations(pool, field, &rules.of_type, value);
         out.extend(broken.into_iter().map(|message| Violation {
-            path: path.clone(),
+            path: format!("{prefix}{name}"),
             message,
         }));
 
@@ -253,15 +291,16 @@ fn walk(
             match (value, field.kind()) {
                 (Value::Array(items), _) => {
                     for (i, item) in items.iter().enumerate() {
-                        walk(pool, inner, item, &format!("{path}[{i}]."), out);
+                        walk(schema, inner, item, &format!("{prefix}{name}[{i}]."), out);
                     }
                 }
                 (Value::Object(entries), FieldKind::Map { .. }) => {
                     for (key, entry) in entries {
-                        walk(pool, inner, entry, &format!("{path}[{key:?}]."), out);
+                        let prefix = format!("{prefix}{name}[{key:?}].");
+                        walk(schema, inner, entry, &prefix, out);
                     }
                 }
-                (single, _) => walk(pool, inner, single, &format!("{path}."), out),
+                (single, _) => walk(schema, inner, single, &format!("{prefix}{name}."), out),
             }
         }
     }

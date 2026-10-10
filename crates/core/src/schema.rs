@@ -4,18 +4,20 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use buffa_descriptor::generated::descriptor::{
-    DescriptorProto, EnumDescriptorProto, FileDescriptorProto,
+use buffa_descriptor::generated::descriptor::{EnumDescriptorProto, FileDescriptorProto};
+use buffa_descriptor::{
+    DescriptorPool, DynamicMessage, FieldDescriptor, MessageIndex, MethodDescriptor,
 };
-use buffa_descriptor::{DescriptorPool, DynamicMessage, MessageIndex, MethodDescriptor};
 use serde_json::Value;
 
 use crate::error::{Error, Result};
+use crate::rules::{self, FieldRules};
 
 /// A descriptor set, linked and ready to answer questions.
 pub struct Schema {
     pool: Arc<DescriptorPool>,
     docs: BTreeMap<String, String>,
+    rules: rules::Table,
 }
 
 /// A method, with the service it belongs to.
@@ -37,10 +39,9 @@ impl Schema {
         for file in pool.files() {
             collect_docs(file, &mut docs);
         }
-        Ok(Self {
-            pool: Arc::new(pool),
-            docs,
-        })
+        let pool = Arc::new(pool);
+        let rules = rules::Table::new(&pool);
+        Ok(Self { pool, docs, rules })
     }
 
     pub fn pool(&self) -> &Arc<DescriptorPool> {
@@ -53,6 +54,11 @@ impl Schema {
     /// a method `package.Service.Method`.
     pub fn doc(&self, full_name: &str) -> &str {
         self.docs.get(full_name).map_or("", String::as_str)
+    }
+
+    /// What the schema asks of a field of `message`.
+    pub(crate) fn rules(&self, message: MessageIndex, field: &FieldDescriptor) -> &FieldRules {
+        self.rules.of(message, field)
     }
 
     pub fn message_index(&self, full_name: &str) -> Result<MessageIndex> {
@@ -87,9 +93,12 @@ pub(crate) fn option<O>(
     name: &str,
 ) -> Option<Value>
 where
-    O: buffa::Message + buffa::MessageName,
+    O: buffa::Message + buffa::MessageName + buffa::ExtensionSet,
 {
-    let options = DynamicMessage::from_options(Arc::clone(pool), options?)?;
+    // An option of another package is, to descriptor.proto, a field it does
+    // not know. Most options have none, and are not decoded a second time.
+    let options = options.filter(|options| !options.unknown_fields().is_empty())?;
+    let options = DynamicMessage::from_options(Arc::clone(pool), options)?;
     let mut json = serde_json::from_str::<Value>(&options.to_json().ok()?).ok()?;
     json.get_mut(format!("[{name}]")).map(Value::take)
 }
@@ -102,7 +111,7 @@ pub(crate) fn qualify(scope: &str, name: &str) -> String {
     if scope.is_empty() {
         name.to_string()
     } else {
-        format!("{scope}.{name}")
+        [scope, ".", name].concat()
     }
 }
 
@@ -117,89 +126,86 @@ const MESSAGE_ENUM: i32 = 4;
 const MESSAGE_ONEOF: i32 = 8;
 const ENUM_VALUE: i32 = 2;
 
-fn child(path: &[i32], field: i32, index: usize) -> Vec<i32> {
-    let mut path = path.to_vec();
-    path.push(field);
-    path.push(i32::try_from(index).unwrap_or(i32::MAX));
-    path
-}
-
+/// The comments of a file, by the full name of what they are written on.
+///
+/// protoc records a span for every token of a file, and a comment on few of
+/// them: the path of a location is followed only when it carries one.
 fn collect_docs(file: &FileDescriptorProto, docs: &mut BTreeMap<String, String>) {
     let Some(info) = file.source_code_info.as_option() else {
         return;
     };
-    let package = text(&file.package);
-    let mut names = BTreeMap::new();
-    for (i, message) in file.message_type.iter().enumerate() {
-        name_message(message, package, child(&[], FILE_MESSAGE, i), &mut names);
-    }
-    for (i, enumeration) in file.enum_type.iter().enumerate() {
-        name_enum(enumeration, package, child(&[], FILE_ENUM, i), &mut names);
-    }
-    for (i, service) in file.service.iter().enumerate() {
-        let path = child(&[], FILE_SERVICE, i);
-        let name = qualify(package, text(&service.name));
-        for (j, method) in service.method.iter().enumerate() {
-            names.insert(
-                child(&path, SERVICE_METHOD, j),
-                qualify(&name, text(&method.name)),
-            );
-        }
-        names.insert(path, name);
-    }
     for location in &info.location {
         let comment = location
             .leading_comments
             .as_deref()
             .or(location.trailing_comments.as_deref());
-        if let (Some(name), Some(comment)) = (names.get(&location.path), comment) {
-            docs.insert(name.clone(), clean(comment));
+        if let Some(comment) = comment
+            && let Some(name) = declared(file, &location.path)
+        {
+            docs.insert(name, clean(comment));
         }
     }
 }
 
-fn name_message(
-    message: &DescriptorProto,
-    scope: &str,
-    path: Vec<i32>,
-    names: &mut BTreeMap<Vec<i32>, String>,
-) {
-    let name = qualify(scope, text(&message.name));
-    for (i, field) in message.field.iter().enumerate() {
-        names.insert(
-            child(&path, MESSAGE_FIELD, i),
-            qualify(&name, text(&field.name)),
-        );
-    }
-    for (i, oneof) in message.oneof_decl.iter().enumerate() {
-        names.insert(
-            child(&path, MESSAGE_ONEOF, i),
-            qualify(&name, text(&oneof.name)),
-        );
-    }
-    for (i, nested) in message.nested_type.iter().enumerate() {
-        name_message(nested, &name, child(&path, MESSAGE_NESTED, i), names);
-    }
-    for (i, enumeration) in message.enum_type.iter().enumerate() {
-        name_enum(enumeration, &name, child(&path, MESSAGE_ENUM, i), names);
-    }
-    names.insert(path, name);
+fn at<T>(list: &[T], index: i32) -> Option<&T> {
+    list.get(usize::try_from(index).ok()?)
 }
 
-fn name_enum(
-    enumeration: &EnumDescriptorProto,
-    scope: &str,
-    path: Vec<i32>,
-    names: &mut BTreeMap<Vec<i32>, String>,
-) {
-    let name = qualify(scope, text(&enumeration.name));
-    for (i, value) in enumeration.value.iter().enumerate() {
-        names.insert(
-            child(&path, ENUM_VALUE, i),
-            qualify(&name, text(&value.name)),
-        );
+/// The full name of the declaration at a `SourceCodeInfo` path: a message,
+/// a field, a oneof, an enum, an enum value, a service or a method. `None`
+/// for a path to anything else, such as an option or the name of a field.
+fn declared(file: &FileDescriptorProto, path: &[i32]) -> Option<String> {
+    let package = text(&file.package);
+    match *path {
+        [FILE_MESSAGE, index, ref rest @ ..] => {
+            let mut message = at(&file.message_type, index)?;
+            let mut name = qualify(package, text(&message.name));
+            let mut rest = rest;
+            // Down through the messages it is nested in.
+            while let [MESSAGE_NESTED, index, ref inner @ ..] = *rest {
+                message = at(&message.nested_type, index)?;
+                name = qualify(&name, text(&message.name));
+                rest = inner;
+            }
+            match *rest {
+                [] => Some(name),
+                [MESSAGE_FIELD, index] => {
+                    Some(qualify(&name, text(&at(&message.field, index)?.name)))
+                }
+                [MESSAGE_ONEOF, index] => {
+                    Some(qualify(&name, text(&at(&message.oneof_decl, index)?.name)))
+                }
+                [MESSAGE_ENUM, index, ref rest @ ..] => {
+                    declared_enum(at(&message.enum_type, index)?, &name, rest)
+                }
+                _ => None,
+            }
+        }
+        [FILE_ENUM, index, ref rest @ ..] => {
+            declared_enum(at(&file.enum_type, index)?, package, rest)
+        }
+        [FILE_SERVICE, index, ref rest @ ..] => {
+            let service = at(&file.service, index)?;
+            let name = qualify(package, text(&service.name));
+            match *rest {
+                [] => Some(name),
+                [SERVICE_METHOD, index] => {
+                    Some(qualify(&name, text(&at(&service.method, index)?.name)))
+                }
+                _ => None,
+            }
+        }
+        _ => None,
     }
-    names.insert(path, name);
+}
+
+fn declared_enum(enumeration: &EnumDescriptorProto, scope: &str, path: &[i32]) -> Option<String> {
+    let name = qualify(scope, text(&enumeration.name));
+    match *path {
+        [] => Some(name),
+        [ENUM_VALUE, index] => Some(qualify(&name, text(&at(&enumeration.value, index)?.name))),
+        _ => None,
+    }
 }
 
 /// A comment as prose. protoc keeps the space after `//` on every line; that
@@ -208,7 +214,7 @@ fn name_enum(
 /// line still ends a paragraph, and a line that starts a block (a list item,
 /// an indented example) keeps its own line.
 fn clean(comment: &str) -> String {
-    let mut out = String::new();
+    let mut out = String::with_capacity(comment.len());
     let mut running = false;
     for line in comment.lines() {
         let line = line.strip_prefix(' ').unwrap_or(line).trim_end();
@@ -221,12 +227,15 @@ fn clean(comment: &str) -> String {
         out.push_str(line);
         running = text;
     }
-    out.trim().to_string()
+    // Trimmed where it is: a schema has a comment on most of what it declares.
+    out.truncate(out.trim_end().len());
+    out.drain(..out.len() - out.trim_start().len());
+    out
 }
 
 fn starts_block(line: &str) -> bool {
-    let numbered = line.split_once(['.', ')']).is_some_and(|(number, rest)| {
-        !number.is_empty() && number.bytes().all(|b| b.is_ascii_digit()) && rest.starts_with(' ')
-    });
+    // A numbered item: digits, then `.` or `)`, then a space.
+    let digits = line.bytes().take_while(u8::is_ascii_digit).count();
+    let numbered = digits > 0 && matches!(line.as_bytes()[digits..], [b'.' | b')', b' ', ..]);
     numbered || line.starts_with([' ', '\t', '-', '*', '|', '>', '#'])
 }

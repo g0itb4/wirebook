@@ -43,6 +43,10 @@ const spec = {
   variables: {},
 };
 const widget = core.template("fixture.v1.Widget", {});
+// A message whose fields have rules, and a body that holds it 200 times: the
+// rules are asked of every one, at each keystroke.
+const gadget = JSON.parse(core.template("fixture.v1.Gadget", {})) as Record<string, unknown>;
+const gadgets = JSON.stringify({ ...gadget, bundle: Array.from({ length: 200 }, () => gadget) });
 
 // [what, milliseconds, budget in milliseconds]
 const results: [string, number, number][] = [
@@ -51,10 +55,13 @@ const results: [string, number, number][] = [
   [
     `load and index a large schema (${big.index.messages.length} messages, ${(large.length / 1e6).toFixed(1)} MB)`,
     median(() => void Core.loadAgain(large, options), 10),
-    350,
+    300,
   ],
-  ["search a large schema", median(() => void big.search("field_7", 12), 20), 30],
+  ["search a large schema", median(() => void big.search("field_7", 12), 20), 12],
+  ["search a large schema for one letter", median(() => void big.search("f", 12), 20), 12],
   ["validate a body with every field kind", median(() => void core.validate("fixture.v1.Widget", widget, {}), 200), 1],
+  ["an example body of a message with rules", median(() => void core.template("fixture.v1.Gadget", {}), 200), 1],
+  ["check 200 messages against their rules", median(() => void core.check("fixture.v1.Gadget", gadgets, {}), 50), 12],
   ["build a request", median(() => void core.request(spec), 200), 1],
 ];
 
@@ -62,7 +69,7 @@ let failed = false;
 for (const [what, ms, budget] of results) {
   const ok = ms <= budget;
   failed ||= !ok;
-  console.log(`${ok ? "ok  " : "FAIL"}  ${ms.toFixed(2).padStart(8)} ms  (budget ${budget})  ${what}`);
+  console.log(`${ok ? "ok  " : "FAIL"}  ${ms.toFixed(3).padStart(9)} ms  (budget ${budget})  ${what}`);
 }
 if (failed) {
   console.error("a budget is exceeded");

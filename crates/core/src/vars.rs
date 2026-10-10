@@ -5,6 +5,7 @@
 //! goes: it is replaced in the body's strings and in header values, and
 //! nowhere else.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 use crate::error::{Error, Result};
@@ -58,11 +59,15 @@ pub fn in_text(text: &str, variables: &Variables) -> Result<String> {
 /// In a JSON body: inside its strings only, and escaped, so a value can
 /// never add a field or end the string it is in. The rest of the text is
 /// left as typed, which keeps an error's line where the person sees it.
-pub fn in_body(json: &str, variables: &Variables) -> Result<String> {
+pub fn in_body<'a>(json: &'a str, variables: &Variables) -> Result<Cow<'a, str>> {
     // A value as the inside of a JSON string.
     fn escaped(value: &str) -> String {
         let quoted = serde_json::Value::from(value).to_string();
         quoted[1..quoted.len() - 1].to_string()
+    }
+    // A body is read at every keystroke, and most have no variable in them.
+    if !json.contains("{{") {
+        return Ok(Cow::Borrowed(json));
     }
     let mut out = String::with_capacity(json.len());
     let mut literal = String::new();
@@ -86,7 +91,7 @@ pub fn in_body(json: &str, variables: &Variables) -> Result<String> {
     }
     // A string that is never closed: the parser will say so.
     out.push_str(&literal);
-    Ok(out)
+    Ok(Cow::Owned(out))
 }
 
 #[cfg(test)]

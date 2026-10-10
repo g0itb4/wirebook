@@ -7,7 +7,8 @@ use buffa_descriptor::generated::descriptor::{
     DescriptorProto, EnumDescriptorProto, FileDescriptorProto, ServiceDescriptorProto,
 };
 use buffa_descriptor::{
-    FieldDescriptor, FieldKind, MessageDescriptor, MethodDescriptor, ScalarType, SingularKind,
+    FieldDescriptor, FieldKind, MessageDescriptor, MessageIndex, MethodDescriptor, ScalarType,
+    SingularKind,
 };
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -219,12 +220,15 @@ impl Scope<'_> {
             return;
         }
         let name = qualify(parent, text(&message.name));
-        let descriptor = self.schema.pool().message_by_name(&name);
-        let fields = descriptor.into_iter().flat_map(|descriptor| {
-            descriptor
-                .fields()
-                .iter()
-                .map(|field| self.field(&name, descriptor, field))
+        let pool = self.schema.pool();
+        let linked = pool
+            .message_index(&name)
+            .map(|index| (index, pool.message(index)));
+        let fields = linked.map_or_else(Vec::new, |(index, descriptor)| {
+            let fields = descriptor.fields().iter();
+            fields
+                .map(|field| self.field(&name, index, descriptor, field))
+                .collect()
         });
         out.messages.push(MessageDoc {
             name: name.clone(),
@@ -232,10 +236,10 @@ impl Scope<'_> {
             imported: self.imported,
             doc: self.schema.doc(&name).to_string(),
             deprecated: message.options.deprecated == Some(true),
-            rules: descriptor.map_or_else(Vec::new, |descriptor| {
-                rules::of_message(self.schema.pool(), descriptor)
+            rules: linked.map_or_else(Vec::new, |(_, descriptor)| {
+                rules::of_message(pool, descriptor)
             }),
-            fields: fields.collect(),
+            fields,
         });
         for nested in &message.nested_type {
             self.message(nested, &name, out);
@@ -248,6 +252,7 @@ impl Scope<'_> {
     fn field(
         &self,
         message: &str,
+        index: MessageIndex,
         descriptor: &MessageDescriptor,
         field: &FieldDescriptor,
     ) -> FieldDoc {
@@ -277,12 +282,14 @@ impl Scope<'_> {
             .and_then(|index| descriptor.oneofs().get(usize::from(index)))
             .filter(|oneof| !oneof.is_synthetic())
             .map(|oneof| oneof.name().to_string());
-        let rules = rules::of_field(pool, field);
+        let rules = self.schema.rules(index, field);
+        // What the comments and the config call the field.
+        let full_name = qualify(message, field.name());
         FieldDoc {
             required: rules.required,
-            rules: rules.texts,
-            example: rules.example,
-            reference: self.reference(message, field),
+            rules: rules.texts.clone(),
+            example: rules.example.clone(),
+            reference: self.reference(message, &full_name, field),
             name: field.name().to_string(),
             json_name: field.json_name().to_string(),
             number: field.number(),
@@ -292,16 +299,15 @@ impl Scope<'_> {
             map_key,
             presence,
             oneof,
-            doc: self.schema.doc(&qualify(message, field.name())).to_string(),
+            doc: self.schema.doc(&full_name).to_string(),
             deprecated: field.options().and_then(|options| options.deprecated) == Some(true),
         }
     }
 
     /// The list a field's value is picked from: what the config says, or
     /// else what the names say.
-    fn reference(&self, message: &str, field: &FieldDescriptor) -> Option<Reference> {
-        let key = qualify(message, field.name());
-        let Some(configured) = self.lookups.borrow_mut().remove(&key) else {
+    fn reference(&self, message: &str, key: &str, field: &FieldDescriptor) -> Option<Reference> {
+        let Some(configured) = self.lookups.borrow_mut().remove(key) else {
             return self.catalog.for_field(message, field);
         };
         let path = configured?;
@@ -394,7 +400,9 @@ impl Scope<'_> {
 
 /// The proto name of a scalar type: `int64`, `string`, and so on.
 fn scalar(scalar_type: ScalarType) -> String {
-    format!("{scalar_type:?}").to_lowercase()
+    let mut name = format!("{scalar_type:?}");
+    name.make_ascii_lowercase();
+    name
 }
 
 fn transports(method: &MethodDescriptor, idempotency: &str, has_http: bool) -> Vec<&'static str> {
