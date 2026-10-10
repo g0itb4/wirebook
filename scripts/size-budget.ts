@@ -37,8 +37,10 @@ const BUDGET: Record<string, number> = {
   // (`.foot`): 3 766 before, 3 903 after. Raised again, from 4 000, for the
   // tokens of type and of colour (`--t-*`, `--strong`, `--hover`): 3 903
   // before, 4 073 after. Raised again, from 4 200, for the rest of the
-  // page's uplift (see app.js): 4 073 before, 5 054 after.
-  "app.css": 5_200,
+  // page's uplift (see app.js): 4 073 before, 5 054 after. Raised again,
+  // from 5 200, for the GitHub mark on the header's link to wirebook, drawn
+  // as a mask so it takes the text's colour: 5 196 before, 5 646 after.
+  "app.css": 5_700,
   // Raised once, from 480, for the preload of the core, the schema, the
   // config and the two fonts, and for the shell the page shows while the
   // core loads. Measured: 452 before, 625 after. Raised again, from 700,
