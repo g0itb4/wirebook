@@ -1,5 +1,6 @@
 // The shell: header with the search and the environment, the navigation,
 // and the page the address names, in one pane or two.
+import { matches, summary } from "../lib/filter";
 import { href, packages, resolve, shortName, title } from "../lib/route";
 import type { Hit } from "../lib/types";
 import { type Page, methodPage } from "./console";
@@ -10,6 +11,9 @@ import { type Panes, enumPage, home, kindOf, messagePage, missing, servicePage, 
 
 /** Where wirebook lives. Every site says so, in its footer. */
 const REPO = "https://github.com/g0itb4/wirebook";
+
+/** Above this many, a package's messages or enums are folded in the menu. */
+const FOLD = 24;
 
 function hitTarget(hit: Hit): string {
   return hit.kind === "field" || hit.kind === "value" ? hit.page : hit.name;
@@ -163,61 +167,113 @@ export function mount(root: HTMLElement, context: Context): void {
   // What a method does, before its name: R reads, W writes, S streams.
   const tag = (kind: { word: string; letter: string; colour: string }): HTMLElement =>
     h("span", { class: `tag ${kind.colour}`, title: kind.word, "aria-hidden": "true" }, kind.letter);
+  /** A list of the menu, under its heading; folded when it is long. */
+  const section = (heading: string, items: HTMLElement[]): (HTMLElement | false)[] => {
+    if (items.length === 0) return [];
+    const list = h("ul", null, items);
+    if (items.length <= FOLD) return [h("h2", null, heading), list];
+    return [h("details", { class: "fold" }, h("summary", null, `${heading} (${items.length})`), list)];
+  };
+  const filter = h("input", {
+    id: "nav-filter",
+    type: "search",
+    "aria-label": "Filter the menu",
+    placeholder: "Filter",
+    autocomplete: "off",
+    spellcheck: "false",
+  });
+  const filterStatus = h("p", { class: "filter-status muted", role: "status" });
+  const groups = h("div", { class: "groups" });
+  /** Show the items that match, and the headings and packages that hold any. */
+  const applyFilter = (): void => {
+    const query = filter.value;
+    const filtering = query.trim() !== "";
+    let shown = 0;
+    let total = 0;
+    // Deepest first, so a service shows when one of its methods does.
+    const items = [...groups.querySelectorAll<HTMLLIElement>("li")].reverse();
+    for (const item of items) {
+      const own = matches(query, item.querySelector("a")?.textContent ?? "");
+      const child = item.querySelector("ul li:not([hidden])") !== null;
+      item.hidden = filtering && !own && !child;
+      if (!item.querySelector("ul")) {
+        total++;
+        if (!item.hidden) shown++;
+      }
+    }
+    for (const list of groups.querySelectorAll<HTMLUListElement>("ul")) {
+      list.hidden = filtering && list.querySelector(":scope > li:not([hidden])") === null;
+    }
+    for (const heading of groups.querySelectorAll<HTMLHeadingElement>("h2")) {
+      heading.hidden = heading.nextElementSibling?.matches("ul[hidden]") ?? false;
+    }
+    for (const fold of groups.querySelectorAll<HTMLDetailsElement>("details")) {
+      const any = fold.querySelector("li:not([hidden])") !== null;
+      fold.hidden = filtering && !any;
+      fold.open = filtering ? any : fold.dataset.open === "true";
+    }
+    filterStatus.textContent = summary(query, shown, total);
+  };
+  filter.addEventListener("input", applyFilter);
+  filter.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && filter.value !== "") {
+      filter.value = "";
+      applyFilter();
+    }
+  });
+
   const showNav = (): void => {
     replace(
-      nav,
-      h("p", null, h("a", { href: "#/" }, "Overview")),
+      groups,
       packages(core.index).map((group) =>
         h(
           "details",
-          { open: !group.imported },
+          { open: !group.imported, "data-open": String(!group.imported) },
           h(
             "summary",
             null,
             group.name === "" ? "(no package)" : group.name,
             group.imported && h("span", { class: "muted small" }, " imported"),
           ),
-          group.services.length > 0 && h("h2", null, "Services"),
-          group.services.length > 0 &&
-            h(
-              "ul",
-              null,
-              group.services.map((service) =>
+          section(
+            "Services",
+            group.services.map((service) =>
+              h(
+                "li",
+                null,
                 h(
-                  "li",
+                  "a",
+                  { href: href(service.name), class: service.deprecated ? "deprecated" : null },
+                  shortName(service.name, group.name),
+                ),
+                h(
+                  "ul",
                   null,
-                  h(
-                    "a",
-                    { href: href(service.name), class: service.deprecated ? "deprecated" : null },
-                    shortName(service.name, group.name),
-                  ),
-                  h(
-                    "ul",
-                    null,
-                    service.methods.map((method) =>
-                      item(method.path, method.name, method.deprecated, tag(kindOf(method))),
-                    ),
+                  service.methods.map((method) =>
+                    item(method.path, method.name, method.deprecated, tag(kindOf(method))),
                   ),
                 ),
               ),
             ),
-          group.messages.length > 0 && h("h2", null, "Messages"),
-          group.messages.length > 0 &&
-            h(
-              "ul",
-              null,
-              group.messages.map((m) => item(m.name, shortName(m.name, group.name), m.deprecated)),
-            ),
-          group.enums.length > 0 && h("h2", null, "Enums"),
-          group.enums.length > 0 &&
-            h(
-              "ul",
-              null,
-              group.enums.map((e) => item(e.name, shortName(e.name, group.name), e.deprecated)),
-            ),
+          ),
+          section(
+            "Messages",
+            group.messages.map((m) => item(m.name, shortName(m.name, group.name), m.deprecated)),
+          ),
+          section(
+            "Enums",
+            group.enums.map((e) => item(e.name, shortName(e.name, group.name), e.deprecated)),
+          ),
         ),
       ),
     );
+    replace(
+      nav,
+      h("div", { class: "filter" }, filter, filterStatus),
+      h("p", null, h("a", { href: "#/" }, "Overview")),
+      groups,
+    );
+    applyFilter();
   };
 
   // ── pages ────────────────────────────────────────────────────────────────
@@ -254,14 +310,12 @@ export function mount(root: HTMLElement, context: Context): void {
     main.classList.toggle("split", panes.side !== undefined);
     side.scrollTop = 0;
     const current = location.hash === "" || location.hash === "#" ? "#/" : location.hash;
-    for (const anchor of nav.querySelectorAll("a")) {
-      if (anchor.getAttribute("href") === current) {
-        anchor.setAttribute("aria-current", "page");
-        // The page may be in a package that is folded.
-        anchor.closest("details")?.setAttribute("open", "");
-      } else {
-        anchor.removeAttribute("aria-current");
-      }
+    nav.querySelector("a[aria-current]")?.removeAttribute("aria-current");
+    const anchor = nav.querySelector(`a[href="${CSS.escape(current)}"]`);
+    anchor?.setAttribute("aria-current", "page");
+    // The page may be in a package, or a list, that is folded.
+    for (let fold = anchor?.closest("details"); fold; fold = fold.parentElement?.closest("details")) {
+      fold.open = true;
     }
     root.classList.remove("nav-open");
     menuButton.setAttribute("aria-expanded", "false");

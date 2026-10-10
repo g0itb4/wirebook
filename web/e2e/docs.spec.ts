@@ -32,7 +32,14 @@ test("the overview lists the services and their methods", async ({ page }) => {
 
 test("the menu leads to a message, whose fields link to their types", async ({ page }) => {
   await open(page);
-  await page.getByRole("navigation", { name: "Schema" }).getByRole("link", { name: "Widget", exact: true }).click();
+  const nav = page.getByRole("navigation", { name: "Schema" });
+  // A long list of messages is folded, with its count; it opens on a click.
+  await expect(nav.getByRole("link", { name: "Widget", exact: true })).toBeHidden();
+  await nav
+    .getByText(/^Messages \(\d+\)$/)
+    .first()
+    .click();
+  await nav.getByRole("link", { name: "Widget", exact: true }).click();
   await expect(page).toHaveURL(/#\/fixture\.v1\.Widget$/);
   await expect(page).toHaveTitle("Widget · Fixture API");
   await expect(page.getByRole("heading", { level: 1, name: "fixture.v1.Widget" })).toBeVisible();
@@ -62,6 +69,25 @@ test("the menu leads to a message, whose fields link to their types", async ({ p
   await expect(
     page.getByRole("table", { name: "Values of Colour" }).getByRole("row", { name: /COLOUR_GREEN/ }),
   ).toContainText("2");
+});
+
+test("the menu is filtered as you type, and says how much is left", async ({ page }) => {
+  await open(page);
+  const nav = page.getByRole("navigation", { name: "Schema" });
+  const filter = nav.getByRole("searchbox", { name: "Filter the menu" });
+  await filter.fill("gadget");
+  await expect(nav.getByRole("link", { name: "CreateGadget", exact: true })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "GetWidget", exact: true })).toBeHidden();
+  // The service that holds a match stays; a heading with nothing under it goes.
+  await expect(nav.getByRole("link", { name: "CatalogService", exact: true })).toBeVisible();
+  await expect(nav.getByRole("link", { name: "WidgetService", exact: true })).toBeHidden();
+  await expect(nav.getByRole("status")).toHaveText(/^\d+ of \d+$/);
+  await filter.fill("zzzz");
+  await expect(nav.getByRole("status")).toContainText("Nothing in the menu matches");
+  await filter.press("Escape");
+  await expect(filter).toHaveValue("");
+  await expect(nav.getByRole("link", { name: "GetWidget", exact: true })).toBeVisible();
+  await expect(nav.locator(".filter-status")).toBeEmpty();
 });
 
 test("a deep link opens its page, and a wrong one says so", async ({ page }) => {
