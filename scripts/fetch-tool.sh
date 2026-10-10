@@ -16,7 +16,12 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 curl -sSfL --proto '=https' --tlsv1.2 -o "$work/archive.tar.gz" "$url"
-echo "$sha256  $work/archive.tar.gz" | sha256sum --check --quiet
+# sha256sum on Linux; shasum on macOS.
+if command -v sha256sum >/dev/null; then
+  echo "$sha256  $work/archive.tar.gz" | sha256sum --check --quiet
+else
+  echo "$sha256  $work/archive.tar.gz" | shasum -a 256 --check --quiet
+fi
 tar -xzf "$work/archive.tar.gz" -C "$work" "$member"
 mkdir -p "$dir"
 install -m 0755 "$work/$member" "$dir/$(basename "$member")"

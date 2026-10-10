@@ -22,15 +22,21 @@ env:
   # The versions the hooks were written against, each download with the
   # SHA-256 of its archive. Keep them in step with the tools on a developer's
   # machine: the embedded site is compared byte for byte with a fresh build,
-  # and another wasm-opt writes other bytes.
+  # and another wasm-opt writes other bytes. The module is rebuilt on an
+  # Apple silicon runner (the `module` job): the same rustc lays the merged
+  # string constants of the module out in an order that depends on the host
+  # it runs on, so a Linux build differs from the committed one by some
+  # kilobytes, and a macOS arm64 build, with the same tools, not at all.
   GOLANGCI_LINT_VERSION: "2.14.0"
   GOLANGCI_LINT_SHA256: ab90aeb7b066f92a33415b638a50fe5344bbb75a0d32ad30cc248d88f81032ab
   GITLEAKS_VERSION: "8.30.1"
   GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
   BINARYEN_VERSION: "133"
   BINARYEN_SHA256: 2dc9c7813f5375db93d96ead4b78222fcc3e2677bbb832297af4797782a37489
+  BINARYEN_SHA256_MACOS: ad66da82ac13f163e424b1643f16c6dfcccc98b5966296b43e52d3cab04f84a8
   WASM_BINDGEN_VERSION: "0.2.127"
   WASM_BINDGEN_SHA256: 61d4a7dc85acfa0d2354ccc0b8361928c7e52a746d17f28ebaa795ed3dc1614a
+  WASM_BINDGEN_SHA256_MACOS: cd93e691eb5953ace5d8ffce52a20b024077a3dac3e2215b8224136b0efb7585
   PREK_VERSION: "0.5.4"
   CARGO_LLVM_COV_VERSION: "0.9.1"
   CARGO_AUDIT_VERSION: "0.22.2"
@@ -64,26 +70,53 @@ jobs:
           pipx install "prek==${PREK_VERSION}"
           cargo install --locked cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION"
       - run: just gen
-      # The output is kept, and on a failure its tail becomes an annotation of
-      # the job, which the API shows without a token: readable from outside.
-      - run: just check 2>&1 | tee check.log
+      # Every hook but the module's rebuild, which the `module` job does on
+      # the host the module is built on. The output is kept, and on a failure
+      # its tail becomes an annotation of the job, which the API shows without
+      # a token: readable from outside.
+      - run: just check-but-dist 2>&1 | tee check.log
         shell: bash -o pipefail {0}
       - name: What failed, as annotations
         if: failure()
-        run: |
-          tail=$(grep -v 'Passed\|Skipped' check.log | tail -c 3800 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
-          echo "::error title=just check, the tail::${tail}"
-          tree=$( { git status --short; git diff --stat; } | tail -c 3800 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
-          echo "::error title=the working tree after the hooks::${tree}"
-          # A core.wasm that differs: which strings, and which bytes, so the
-          # cause can be seen from outside.
-          if ! git diff --quiet -- internal/site/dist/core.wasm; then
-            git show HEAD:internal/site/dist/core.wasm > /tmp/committed.wasm
-            wasm=$( { diff <(strings -n 6 /tmp/committed.wasm) <(strings -n 6 internal/site/dist/core.wasm) | head -60; cmp -l /tmp/committed.wasm internal/site/dist/core.wasm | head -40; } | tail -c 3800 | sed 's/%/%25/g' | sed ':a;N;$!ba;s/\n/%0A/g')
-            echo "::error title=core.wasm, committed versus rebuilt::${wasm}"
-          fi
+        run: scripts/ci-annotate.sh check.log
       - name: Scan the whole history for secrets
         run: just secrets
+
+  # The embedded site, rebuilt from source on the host it is built on and
+  # compared byte for byte with what is committed: `go install` compiles
+  # what is in the repository, so it must be what the source gives.
+  module:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: rustup show
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: package.json
+      - uses: extractions/setup-just@dd310ad5a97d8e7b41793f8ef055398d51ad4de6 # v2
+      - name: Install wasm-bindgen and wasm-opt, each checked against its SHA-256
+        run: |
+          scripts/fetch-tool.sh \
+            "https://github.com/rustwasm/wasm-bindgen/releases/download/${WASM_BINDGEN_VERSION}/wasm-bindgen-${WASM_BINDGEN_VERSION}-aarch64-apple-darwin.tar.gz" \
+            "$WASM_BINDGEN_SHA256_MACOS" \
+            "wasm-bindgen-${WASM_BINDGEN_VERSION}-aarch64-apple-darwin/wasm-bindgen" \
+            "$HOME/.local/bin"
+          scripts/fetch-tool.sh \
+            "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-arm64-macos.tar.gz" \
+            "$BINARYEN_SHA256_MACOS" \
+            "binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt" \
+            "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - run: bun install --frozen-lockfile
+      - run: just dist-check 2>&1 | tee check.log
+        shell: bash -o pipefail {0}
+      - name: What failed, as annotations
+        if: failure()
+        run: scripts/ci-annotate.sh check.log
 
   # The built site, served by `wirebook serve`, in headless Chromium: every
   # transport with every authentication scheme, the accessibility scan, and

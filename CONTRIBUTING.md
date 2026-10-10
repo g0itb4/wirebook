@@ -87,8 +87,16 @@ with their licence.
 It is committed because `go install` and `go tool` compile what is in the
 module and run no recipe: the site has to be there. `just dist-check`
 (pre-push, and CI) rebuilds it and fails on a difference, or on a file git
-does not know, so it cannot go stale. After a change under `crates/` or `web/`, run `just dist` and commit
-the result with the change.
+does not know, so it cannot go stale. After a change under `crates/` or
+`web/`, run `just dist` and commit the result with the change.
+
+The module's bytes depend on the host that builds it: the same rustc lays
+the merged string constants of `core.wasm` out in an order that differs
+between macOS on Apple silicon and Linux, by some kilobytes, with the same
+tools. So the module is built on Apple silicon, and CI rebuilds it there
+(the `module` job on a macOS runner); the Linux jobs run every other hook
+(`just check-but-dist`). A rebuild on another host will differ: do not
+commit it.
 
 The build is held to a size budget in `scripts/size-budget.ts`. A budget
 only goes down; each time one went up (the security checks; the form, the

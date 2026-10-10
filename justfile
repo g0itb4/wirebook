@@ -32,6 +32,15 @@ check:
     prek run --all-files
     prek run --all-files --stage pre-push
 
+# The module's bytes depend on the host that builds it (see ci.yml), so a
+# Linux runner checks everything but the embedded site, and a macOS one
+# rebuilds that.
+#
+# every hook but the rebuild of the embedded site
+check-but-dist:
+    prek run --all-files
+    prek run --all-files --stage pre-push --skip dist
+
 # ── generate ─────────────────────────────────────────────────────────────────
 
 # regenerate what is derived from the fixture protos: the image, the Go test server's stubs, the golden cases
