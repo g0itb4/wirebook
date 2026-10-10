@@ -575,7 +575,60 @@ main {
 }
 
 main.split {
-  grid-template-columns: minmax(0, 1fr) minmax(26rem, 38rem);
+  grid-template-columns: minmax(0, 1fr) var(--s3) minmax(26rem, var(--side, 38rem));
+}
+
+/* The handle between the reference and the console: a hairline that shows
+   its edge when held or focused. */
+.gutter {
+  position: sticky;
+  top: var(--top);
+  align-self: start;
+  height: calc(100vh - var(--top));
+  cursor: col-resize;
+  background: linear-gradient(
+    to right,
+    transparent calc(50% - 0.5px),
+    var(--line) calc(50% - 0.5px),
+    var(--line) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+  touch-action: none;
+}
+
+.gutter:hover,
+.gutter.held,
+.gutter:focus-visible {
+  background: linear-gradient(
+    to right,
+    transparent calc(50% - 1px),
+    var(--edge) calc(50% - 1px),
+    var(--edge) calc(50% + 1px),
+    transparent calc(50% + 1px)
+  );
+}
+
+.gutter:focus-visible {
+  outline-offset: -2px;
+}
+
+main:not(.split) > .gutter {
+  display: none;
+}
+
+/* A member chosen in the search: marked, until the next page. */
+.props > li.lit {
+  padding-left: var(--s3);
+  box-shadow: inset 2px 0 0 var(--read);
+}
+
+tr.lit > th:first-child {
+  box-shadow: inset 2px 0 0 var(--read);
+  padding-left: var(--s2);
+}
+
+.lit:focus {
+  outline: none;
 }
 
 .pane {
@@ -1427,9 +1480,39 @@ details.card > :last-child {
   border-radius: var(--radius-sm);
 }
 
+/* The frames of a stream, down an amber rule, each with its number. */
 .frames {
-  padding-left: var(--s5);
+  margin: var(--s3) 0 0;
+  padding-left: var(--s3);
+  list-style: none;
+  border-left: 2px solid var(--stream);
   font-size: var(--t-ui);
+}
+
+.frames > li + li {
+  margin-top: var(--s3);
+}
+
+.frames pre {
+  margin: var(--s1) 0 0;
+}
+
+.frame-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s3);
+  margin: 0;
+  color: var(--muted);
+  font: var(--t-sm) / 1.5 var(--mono);
+}
+
+.frame-n {
+  color: var(--stream);
+  font-weight: 600;
+}
+
+.frames .end p {
+  margin: var(--s1) 0 0;
 }
 
 .history {
@@ -1509,6 +1592,10 @@ dialog h2 {
     border-left: 0;
     border-top: 1px solid var(--line);
     scroll-margin-top: var(--top);
+  }
+
+  .gutter {
+    display: none;
   }
 
   .try {

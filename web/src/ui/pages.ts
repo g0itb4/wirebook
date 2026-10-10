@@ -106,7 +106,7 @@ export function fieldsTable(message: MessageDoc, caption: string): HTMLElement {
     message.fields.map((field) =>
       h(
         "li",
-        null,
+        { id: `m-${field.name}` },
         h(
           "div",
           { class: "prop-head" },
@@ -464,7 +464,7 @@ export function enumPage(context: Context, enumeration: EnumDoc): Panes {
             enumeration.values.map((value) =>
               h(
                 "tr",
-                null,
+                { id: `m-${value.name}` },
                 h("th", { scope: "row" }, h("code", null, value.name)),
                 h("td", null, value.number),
                 h("td", null, value.deprecated && badge("deprecated", "warn"), prose(value.doc)),

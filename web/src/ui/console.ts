@@ -70,15 +70,35 @@ function errorBox(error: RpcError): HTMLElement {
   );
 }
 
-function frameItem(frame: Frame): HTMLElement {
-  if (frame.kind === "message")
-    return h("li", null, h("pre", { tabindex: "0" }, highlighted(clip(pretty(frame.message)), "json")));
-  if (frame.kind === "invalid") return h("li", { class: "error" }, `A frame could not be read: ${frame.reason}`);
+/** One frame of a stream: its number, when it came, how big it was, then itself. */
+function frameItem(frame: Frame, n: number, afterMs: number | undefined): HTMLElement {
+  const head = (what: string, size?: string): HTMLElement =>
+    h(
+      "p",
+      { class: "frame-head" },
+      h("span", { class: "frame-n" }, `#${n}`),
+      h("span", null, what),
+      afterMs !== undefined && h("span", null, `+${Math.round(afterMs)} ms`),
+      size !== undefined && h("span", null, size),
+    );
+  if (frame.kind === "message") {
+    const text = pretty(frame.message);
+    return h(
+      "li",
+      null,
+      head("message", bytes(new TextEncoder().encode(text).length)),
+      h("pre", { tabindex: "0" }, highlighted(clip(text), "json")),
+    );
+  }
+  if (frame.kind === "invalid") {
+    return h("li", { class: "error" }, head("unreadable"), h("p", null, `A frame could not be read: ${frame.reason}`));
+  }
   const metadata = Object.keys(frame.metadata).length > 0;
   return h(
     "li",
     { class: "end" },
-    frame.error ? errorBox(frame.error) : h("p", null, "End of the stream."),
+    head(frame.error ? "error" : "end"),
+    frame.error ? errorBox(frame.error) : h("p", null, badge("end", "good"), " End of the stream."),
     metadata &&
       h("pre", { tabindex: "0", "aria-label": "Trailing metadata" }, highlighted(pretty(frame.metadata), "json")),
   );
@@ -94,6 +114,8 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   const output = core.index.messages.find((message) => message.name === method.output);
   const options = choices(method);
   let controller: AbortController | undefined;
+  /** When each frame of the last stream came, after the send. */
+  let arrivals: number[] = [];
 
   // On a narrow screen the console is under the whole reference: a way there.
   const tryIt = h(
@@ -490,7 +512,11 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
         ),
       outcome.request.expect.framing === "stream" &&
         outcome.frames.length > 0 &&
-        h("ol", { class: "frames" }, outcome.frames.map(frameItem)),
+        h(
+          "ol",
+          { class: "frames" },
+          outcome.frames.map((frame, i) => frameItem(frame, i + 1, arrivals[i])),
+        ),
       message !== null &&
         block(
           "the response",
@@ -536,9 +562,16 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
     sendButton.disabled = true;
     cancelButton.hidden = false;
     const frames = h("ol", { class: "frames" });
-    answer(h("p", { class: "status" }, badge(method.serverStreaming ? "listening" : "sending", "stream")), frames);
+    const count = h("span", { class: "muted", role: "status" });
+    answer(
+      h("p", { class: "status" }, badge(method.serverStreaming ? "listening" : "sending", "stream"), count),
+      frames,
+    );
     const sent = spec();
     const environment = context.environment;
+    const started = performance.now();
+    arrivals = [];
+    let received = 0;
     try {
       const outcome = await send(core, sent, {
         fetch: globalThis.fetch.bind(globalThis),
@@ -546,7 +579,11 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
         pageUrl: location.href,
         signal: controller.signal,
         onFrame: (frame) => {
-          frames.appendChild(frameItem(frame));
+          const after = performance.now() - started;
+          arrivals.push(after);
+          received++;
+          if (frame.kind === "message") count.textContent = `${received} ${received === 1 ? "message" : "messages"}`;
+          frames.appendChild(frameItem(frame, received, after));
           // A stream that never ends must not fill the page.
           if (frames.childElementCount > MAX_FRAMES) frames.firstElementChild?.remove();
           // An id that went by can be picked later, without a call.

@@ -7,6 +7,10 @@ import { namer } from "../lib/route";
 import type { Store } from "../lib/store";
 import type { Environment, SiteConfig } from "../lib/types";
 
+/** How narrow and how wide the console may be, in rem. */
+export const SIDE_MIN = 26;
+export const SIDE_MAX = 48;
+
 export class Context {
   environments: Environment[] = [];
   current = "";
@@ -17,6 +21,10 @@ export class Context {
   shortcuts = true;
   /** How a body is edited: as a form, or as JSON. */
   view: "form" | "json" = "form";
+  /** The width of the console beside the reference, in rem. */
+  side = 38;
+  /** A field or a value to land on when the next page is drawn: chosen in the search. */
+  pending: string | undefined;
   /** What lists returned and which ids were seen: in memory, for this tab. */
   readonly lookups: Lookups;
   /** The body someone was typing for a method, kept while the page is open. */
@@ -44,6 +52,8 @@ export class Context {
     this.keepBodies = setting_("keepBodies") !== "no";
     this.shortcuts = setting_("shortcuts") !== "no";
     this.view = setting_("view") === "json" ? "json" : "form";
+    const side = Number(setting_("side"));
+    if (side >= SIDE_MIN && side <= SIDE_MAX) this.side = side;
     this.current = this.environments.some((env) => env.id === setting?.value)
       ? setting!.value
       : this.environments[0]!.id;
@@ -77,6 +87,11 @@ export class Context {
   async setView(view: "form" | "json"): Promise<void> {
     this.view = view;
     await this.store.put("settings", { id: "view", value: view });
+  }
+
+  async setSide(rem: number): Promise<void> {
+    this.side = Math.min(SIDE_MAX, Math.max(SIDE_MIN, Math.round(rem)));
+    await this.store.put("settings", { id: "side", value: String(this.side) });
   }
 
   /** Call when the environments or their secrets changed. */

@@ -353,6 +353,30 @@ test.describe("the look", () => {
     await expect(page.getByLabel("The request as code").locator(".tk-kw").first()).toHaveText("curl");
   });
 
+  test("the console is resized by its handle, and keeps its width", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await open(page, GET_WIDGET);
+    const console_ = page.getByRole("region", { name: "Console and examples" });
+    const handle = page.getByRole("separator", { name: "Resize the console" });
+    const before = (await console_.boundingBox())!.width;
+    const box = (await handle.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 120, box.y + 200, { steps: 4 });
+    await page.mouse.up();
+    const after = (await console_.boundingBox())!.width;
+    expect(after - before).toBeGreaterThan(100);
+    await expect(handle).toHaveAttribute("aria-valuenow", /^\d+$/);
+    // Kept across a reload, to the rem; and the keyboard moves it too.
+    await page.reload();
+    await expect(page.locator("main#main")).toBeVisible();
+    expect(Math.abs((await console_.boundingBox())!.width - after)).toBeLessThan(17);
+    const now = Number(await handle.getAttribute("aria-valuenow"));
+    await handle.focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(handle).toHaveAttribute("aria-valuenow", String(now - 1));
+  });
+
   test("on a phone, the method page offers a way down to its console", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await open(page, GET_WIDGET);

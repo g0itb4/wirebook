@@ -137,6 +137,23 @@ test("search is driven from the keyboard", async ({ page }) => {
   await expect(results).toContainText("Nothing matches.");
 });
 
+test("a field found in the search is landed on, marked", async ({ page }) => {
+  await open(page);
+  const search = page.getByRole("combobox", { name: "Search the schema" });
+  await search.fill("Widget.serial");
+  const results = page.getByRole("listbox", { name: "Search results" });
+  await expect(results.getByRole("option").first()).toContainText("fixture.v1.Widget.serial");
+  await expect(results.getByRole("option").first()).toContainText("in Widget");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#\/fixture\.v1\.Widget$/);
+  const serial = page
+    .getByRole("list", { name: "Fields of Widget" })
+    .getByRole("listitem")
+    .filter({ hasText: /^serial/ });
+  await expect(serial).toBeFocused();
+  await expect(serial).toHaveClass(/lit/);
+});
+
 test("a method with a client stream is documented, and says why it cannot be called", async ({ page }) => {
   await open(page, "#/fixture.v1.LibraryService/UploadPages");
   await expect(page.getByText("client stream", { exact: true })).toBeVisible();

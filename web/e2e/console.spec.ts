@@ -185,6 +185,10 @@ test("a stream arrives frame by frame, and can end with an error", async ({ page
   await expect(response(page).locator(".frames > li").first()).toContainText('"id": "a"');
   await expect(response(page).getByText("End of the stream.")).toBeVisible();
   await expect(response(page).locator(".frames > li")).toHaveCount(4);
+  // Each frame is numbered, and says when it came and how big it was.
+  await expect(response(page).locator(".frame-n").first()).toHaveText("#1");
+  await expect(response(page).locator(".frame-n").last()).toHaveText("#4");
+  await expect(response(page).locator(".frames > li").first()).toContainText(/\+\d+ ms/);
 
   await typeBody(page, '{"colour": "COLOUR_GREEN"}');
   await send(page);

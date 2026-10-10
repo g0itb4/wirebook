@@ -4,7 +4,7 @@ import { matches, summary } from "../lib/filter";
 import { href, packages, resolve, shortName, title } from "../lib/route";
 import type { Hit } from "../lib/types";
 import { type Page, methodPage } from "./console";
-import type { Context } from "./context";
+import { type Context, SIDE_MAX, SIDE_MIN } from "./context";
 import { badge, h, replace } from "./dom";
 import { environmentDialog } from "./environments";
 import { type Panes, enumPage, home, kindOf, messagePage, missing, servicePage, useNames } from "./pages";
@@ -25,6 +25,49 @@ export function mount(root: HTMLElement, context: Context): void {
   const main = h("main", { id: "main", tabindex: "-1" });
   const reference = h("div", { class: "pane" });
   const side = h("section", { class: "pane side", "aria-label": "Console and examples" });
+  // Between the two: a handle that sets how wide the console is. Dragged, or
+  // moved with the arrow keys; Home puts it back.
+  const gutter = h("div", {
+    class: "gutter",
+    role: "separator",
+    "aria-orientation": "vertical",
+    "aria-label": "Resize the console",
+    "aria-valuemin": String(SIDE_MIN),
+    "aria-valuemax": String(SIDE_MAX),
+    tabindex: "0",
+  });
+  const rem = (): number => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const setSide = (width: number): void => {
+    const clamped = Math.min(SIDE_MAX, Math.max(SIDE_MIN, width));
+    main.style.setProperty("--side", `${clamped}rem`);
+    gutter.setAttribute("aria-valuenow", String(Math.round(clamped)));
+  };
+  setSide(context.side);
+  gutter.addEventListener("pointerdown", (event) => {
+    gutter.setPointerCapture(event.pointerId);
+    gutter.classList.add("held");
+  });
+  gutter.addEventListener("pointermove", (event) => {
+    if (!gutter.hasPointerCapture(event.pointerId)) return;
+    setSide((main.getBoundingClientRect().right - event.clientX) / rem());
+  });
+  const release = (event: PointerEvent): void => {
+    if (!gutter.hasPointerCapture(event.pointerId)) return;
+    gutter.releasePointerCapture(event.pointerId);
+    gutter.classList.remove("held");
+    void context.setSide(Number(gutter.getAttribute("aria-valuenow")));
+  };
+  gutter.addEventListener("pointerup", release);
+  gutter.addEventListener("pointercancel", release);
+  gutter.addEventListener("keydown", (event) => {
+    const now = Number(gutter.getAttribute("aria-valuenow"));
+    const next =
+      event.key === "ArrowLeft" ? now + 1 : event.key === "ArrowRight" ? now - 1 : event.key === "Home" ? 38 : null;
+    if (next === null) return;
+    event.preventDefault();
+    setSide(next);
+    void context.setSide(next);
+  });
   // The footer: who made the page, and the site's own links. A link is
   // text and an href; the config refused anything but https.
   const foot = h(
@@ -99,7 +142,11 @@ export function mount(root: HTMLElement, context: Context): void {
   };
   const go = (hit: Hit): void => {
     closeHits();
-    location.hash = href(hitTarget(hit));
+    // A member of a page: land on it once the page is drawn.
+    context.pending = hit.kind === "field" || hit.kind === "value" ? hit.name.slice(hit.page.length + 1) : undefined;
+    const target = href(hitTarget(hit));
+    if (location.hash === target) show(true);
+    else location.hash = target;
   };
   search.addEventListener("input", () => {
     found = core.search(search.value, 12);
@@ -343,7 +390,16 @@ export function mount(root: HTMLElement, context: Context): void {
     }
     root.classList.remove("nav-open");
     menuButton.setAttribute("aria-expanded", "false");
-    if (focus) {
+    const landing =
+      context.pending === undefined ? null : main.querySelector<HTMLElement>(`#m-${CSS.escape(context.pending)}`);
+    context.pending = undefined;
+    if (landing) {
+      // Chosen in the search: the member itself, marked, in the middle of the view.
+      landing.setAttribute("tabindex", "-1");
+      landing.classList.add("lit");
+      landing.focus({ preventScroll: true });
+      landing.scrollIntoView({ block: "center" });
+    } else if (focus) {
       // A new page: start reading, and tabbing, from its top.
       main.focus({ preventScroll: true });
       window.scrollTo(0, 0);
@@ -375,7 +431,7 @@ export function mount(root: HTMLElement, context: Context): void {
     h("div", { class: "layout" }, nav, main),
     dialog.element,
   );
-  main.append(reference, side, foot);
+  main.append(reference, gutter, side, foot);
   showEnvironment();
   showNav();
   show(false);
