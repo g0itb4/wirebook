@@ -1,6 +1,6 @@
 module github.com/g0itb4/wirebook
 
-go 1.27.1
+go 1.27.2
 
 require (
 	connectrpc.com/connect v1.21.0
