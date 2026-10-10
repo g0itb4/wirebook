@@ -9,7 +9,7 @@ import type { Context } from "./context";
 import { block } from "./copy";
 import { badge, bytes, clip, code as highlighted, h, pretty, prose, replace } from "./dom";
 import { form as formView } from "./form";
-import { type Panes, fieldsTable, link, methodBadges, short } from "./pages";
+import { type Panes, crumbs, fieldsTable, link, methodBadges, short } from "./pages";
 
 export interface Page {
   panes: Panes;
@@ -95,9 +95,24 @@ export function methodPage(context: Context, service: ServiceDoc, method: Method
   const options = choices(method);
   let controller: AbortController | undefined;
 
+  // On a narrow screen the console is under the whole reference: a way there.
+  const tryIt = h(
+    "button",
+    {
+      type: "button",
+      class: "try",
+      onclick: () => {
+        const pane = document.querySelector<HTMLElement>(".pane.side");
+        pane?.scrollIntoView({ block: "start" });
+        document.getElementById("transport")?.focus({ preventScroll: true });
+      },
+    },
+    "Try it ↓",
+  );
   const reference: (HTMLElement | false)[] = [
-    h("p", { class: "kind" }, "Method of ", link(service.name)),
+    crumbs(service.name, link(service.name, short(service.name)), "Method"),
     h("h1", null, method.name, " ", methodBadges(method)),
+    tryIt,
     h(
       "p",
       { class: "signature" },

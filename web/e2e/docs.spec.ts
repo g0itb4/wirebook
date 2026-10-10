@@ -26,10 +26,9 @@ test("the menu leads to a message, whose fields link to their types", async ({ p
   await expect(page.getByRole("heading", { level: 1, name: "fixture.v1.Widget" })).toBeVisible();
   // A new page takes the focus, so reading starts at its top.
   await expect(page.locator("main")).toBeFocused();
-  await expect(page.getByRole("navigation").getByRole("link", { name: "Widget", exact: true })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  await expect(
+    page.getByRole("navigation", { name: "Schema" }).getByRole("link", { name: "Widget", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
 
   const fields = page.getByRole("list", { name: "Fields of Widget" });
   const serial = fields.getByRole("listitem").filter({ hasText: /^serial/ });
@@ -56,6 +55,14 @@ test("the menu leads to a message, whose fields link to their types", async ({ p
 test("a deep link opens its page, and a wrong one says so", async ({ page }) => {
   await open(page, "#/fixture.v1.LibraryService/UpdateBook");
   await expect(page.getByRole("heading", { level: 1, name: /UpdateBook/ })).toBeVisible();
+  // Where it is: the package, the service it belongs to, and what it is.
+  const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(crumbs).toContainText("fixture.v1");
+  await expect(crumbs.getByRole("link", { name: "LibraryService" })).toHaveAttribute(
+    "href",
+    "#/fixture.v1.LibraryService",
+  );
+  await expect(crumbs.getByText("Method")).toHaveAttribute("aria-current", "page");
   await expect(page.getByText("PATCH /v1/{book.name=shelves/*/books/*}").first()).toBeVisible();
 
   await open(page, "#/fixture.v1.NoSuchThing");

@@ -188,12 +188,37 @@ p {
   color: var(--error);
 }
 
-.kind {
-  margin: 0 0 var(--s1);
+/* Where a page is: package / service / kind. The last crumb is this page. */
+.crumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s1) var(--s2);
+  margin: 0 0 var(--s2);
+  padding: 0;
+  list-style: none;
   color: var(--muted);
-  font: 500 var(--t-sm)/1.4 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
+  font: var(--t-sm) / 1.5 var(--mono);
+}
+
+.crumbs li + li::before {
+  content: "/";
+  margin-right: var(--s2);
+  color: var(--edge);
+}
+
+.crumbs a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.crumbs a:hover {
+  text-decoration: underline;
+}
+
+/* The way to the console when it is under the reference, not beside it. */
+.try {
+  display: none;
+  margin: 0 0 var(--s4);
 }
 
 .doc p {
@@ -1263,6 +1288,11 @@ dialog h2 {
     max-height: none;
     border-left: 0;
     border-top: 1px solid var(--line);
+    scroll-margin-top: var(--top);
+  }
+
+  .try {
+    display: inline-flex;
   }
 
   .pane {

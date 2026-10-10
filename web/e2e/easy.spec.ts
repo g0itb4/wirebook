@@ -210,7 +210,10 @@ test("an id seen in a response is offered without a call", async ({ page }) => {
   await expect(response(page).getByLabel("Response body")).toContainText("North");
   const before = (await seen(page)).count;
 
-  await page.getByRole("navigation").getByRole("link", { name: "ListGadgets", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Schema" })
+    .getByRole("link", { name: "ListGadgets", exact: true })
+    .click();
   await page.getByRole("button", { name: "Pick rackId from ListRacks" }).click();
   await expect(page.getByText('2 seen in responses. "list" calls ListRacks.')).toBeVisible();
   await page.getByRole("option", { name: /South/ }).click();
@@ -289,7 +292,7 @@ test("the request as code, in four languages, hides the credential unless asked"
   await page.getByRole("button", { name: "Copy", exact: true }).click();
   await expect(page.getByText("Copied, with the credential in it.")).toBeVisible();
   // The language stays as chosen on another method.
-  await page.getByRole("navigation").getByRole("link", { name: "ListRacks", exact: true }).click();
+  await page.getByRole("navigation", { name: "Schema" }).getByRole("link", { name: "ListRacks", exact: true }).click();
   await expect(language("Go")).toHaveAttribute("aria-pressed", "true");
   await expect(code).toContainText("ListRacks");
 });
@@ -348,6 +351,15 @@ test.describe("the look", () => {
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('"id": "w1"');
     // The request as code is highlighted too, in each language.
     await expect(page.getByLabel("The request as code").locator(".tk-kw").first()).toHaveText("curl");
+  });
+
+  test("on a phone, the method page offers a way down to its console", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await open(page, GET_WIDGET);
+    const transport = page.getByLabel("Send as");
+    await page.getByRole("button", { name: "Try it" }).click();
+    await expect(transport).toBeFocused();
+    await expect(transport).toBeInViewport();
   });
 
   test("the navigation says what each method does", async ({ page }) => {

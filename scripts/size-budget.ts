@@ -23,7 +23,11 @@ const BUDGET: Record<string, number> = {
   // Raised once more, from 17 000 and 3 100, for the form of a body, the
   // pickers, the variables and the code in four languages, and for the
   // three-pane layout that shows them.
-  "app.js": 24_000,
+  // Raised once, from 24 000, for the page's uplift: code told apart by
+  // lightness (the tokenizer), a copy button on every block, breadcrumbs, a
+  // filter on the menu, a start on the home page, a palette for search, a
+  // split that resizes, the frames of a stream. Measured at the end of it.
+  "app.js": 28_000,
   // Raised once, from 4 600, for the roomier page: a scale of space, the
   // console's sections (`.card`), the fields of a message as a list, and
   // the joined buttons of a choice. Measured: 4 456 before, 5 135 after.
@@ -31,8 +35,9 @@ const BUDGET: Record<string, number> = {
   // 5 135 before, 3 766 after. Raised once, from 3 900, for the footer
   // (`.foot`): 3 766 before, 3 903 after. Raised again, from 4 000, for the
   // tokens of type and of colour (`--t-*`, `--strong`, `--hover`): 3 903
-  // before, 4 073 after.
-  "app.css": 4_200,
+  // before, 4 073 after. Raised again for the rest of the page's uplift
+  // (see app.js). Measured at the end of it.
+  "app.css": 6_000,
   // Raised once, from 480, for the preload of the core, the schema, the
   // config and the two fonts, and for the shell the page shows while the
   // core loads. Measured: 452 before, 625 after.

@@ -28,6 +28,30 @@ export function link(name: string, label?: string): HTMLElement {
   return h("a", { href: href(name) }, label ?? name);
 }
 
+/** `fixture.v1` of `fixture.v1.Widget.Part`: what is left once the short name goes. */
+function packageOf(fullName: string): string {
+  const rest = short(fullName);
+  return fullName.endsWith(rest) ? fullName.slice(0, Math.max(0, fullName.length - rest.length - 1)) : "";
+}
+
+/**
+ * Where a page is: its package, what it is in between, and the kind of thing
+ * it shows. The last crumb is the current one.
+ */
+export function crumbs(fullName: string, ...between: (HTMLElement | string)[]): HTMLElement {
+  const pkg = packageOf(fullName);
+  const items: (HTMLElement | string)[] = [pkg === "" ? "(no package)" : pkg, ...between];
+  return h(
+    "nav",
+    { class: "crumbs", "aria-label": "Breadcrumb" },
+    h(
+      "ol",
+      null,
+      items.map((item, i) => h("li", i === items.length - 1 ? { "aria-current": "page" } : null, item)),
+    ),
+  );
+}
+
 /** What a method does, in a word and its colour: read, write or stream. */
 export function kindOf(method: MethodDoc): { word: string; letter: string; colour: string } {
   if (method.clientStreaming || method.serverStreaming) return { word: "stream", letter: "S", colour: "stream" };
@@ -212,7 +236,7 @@ export function home(context: Context): Panes {
 export function servicePage(service: ServiceDoc): Panes {
   return {
     reference: [
-      h("p", { class: "kind" }, "Service"),
+      crumbs(service.name, "Service"),
       h("h1", null, service.name, service.deprecated && [" ", badge("deprecated", "warn")]),
       h("p", { class: "muted small" }, h("code", null, service.file)),
       prose(service.doc, "No description."),
@@ -249,7 +273,7 @@ function users(index: Index, name: string): (HTMLElement | false)[] {
 export function messagePage(context: Context, message: MessageDoc): Panes {
   return {
     reference: [
-      h("p", { class: "kind" }, "Message"),
+      crumbs(message.name, "Message"),
       h("h1", null, message.name, message.deprecated && [" ", badge("deprecated", "warn")]),
       h("p", { class: "muted small" }, h("code", null, message.file)),
       prose(message.doc, "No description."),
@@ -276,7 +300,7 @@ export function messagePage(context: Context, message: MessageDoc): Panes {
 export function enumPage(context: Context, enumeration: EnumDoc): Panes {
   return {
     reference: [
-      h("p", { class: "kind" }, "Enum"),
+      crumbs(enumeration.name, "Enum"),
       h("h1", null, enumeration.name, enumeration.deprecated && [" ", badge("deprecated", "warn")]),
       h("p", { class: "muted small" }, h("code", null, enumeration.file)),
       prose(enumeration.doc, "No description."),
