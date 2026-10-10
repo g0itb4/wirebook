@@ -15,7 +15,7 @@ Each entry names where a thing starts. Read those files, and the document named 
 - The config file has no field that could hold a secret, and an unknown field is an error: `internal/config/config.go`.
 - Text reaches the page as text nodes, through `web/src/ui/dom.ts`. No `innerHTML`.
 - A pick of ids is called on a click only, to a method declared `NO_SIDE_EFFECTS`, through the core's request and `web/src/lib/send.ts`; its result is never stored. A variable never reaches the base URL or the credential.
-- The page is dark only; colour is signal, each with its word; one effect, on an error status. The rules are under "The page" in `CONTRIBUTING.md`.
+- The page is dark only; colour is signal, each with its word; code is told apart by lightness, not colour; one effect, on an error status. The rules are under "The page" in `CONTRIBUTING.md`.
 - Go imports point from the commands inwards; depguard in `.golangci.yml` checks them. A new Go package needs a rule there and a floor in `coverage.json`.
 
 The reasons, and the rest of the rules: `CONTRIBUTING.md`.
@@ -40,7 +40,7 @@ The reasons, and the rest of the rules: `CONTRIBUTING.md`.
 - **Search**: `crates/core/src/search.rs`.
 - **Sending**: `fetch` with no cookie and no redirect, the stream reader, the explanation of a CORS failure. `web/src/lib/send.ts`.
 - **History and export**: what the browser keeps, in IndexedDB. `web/src/lib/history.ts`, `web/src/lib/store.ts`.
-- **Pages**: shell, navigation and search in `web/src/ui/app.ts`; documentation pages in `web/src/ui/pages.ts`; the method page and console in `web/src/ui/console.ts`; tokens, layout and the fonts' faces in `web/src/app.css`. Verify with `just e2e` (`web/e2e/easy.spec.ts` for the form, pickers, variables, code and the look).
+- **Pages**: shell, navigation, search and the split in `web/src/ui/app.ts`; documentation pages in `web/src/ui/pages.ts`; the method page and console in `web/src/ui/console.ts`; code as tokens in `web/src/lib/highlight.ts`, the copy button in `web/src/ui/copy.ts`; tokens, layout and the fonts' faces in `web/src/app.css`. Verify with `just e2e` (`web/e2e/easy.spec.ts` for the form, pickers, variables, code and the look; `web/e2e/speed.spec.ts` for how the page loads).
 - **Command**: `build` and `serve`. `internal/cli/cli.go`, `cmd/wirebook/main.go`.
 - **buf plugin**: one HTML file. `internal/plugin/plugin.go`, `cmd/protoc-gen-wirebook/main.go`.
 - **Site assembly**: the embedded build, with its fonts, plus one repository's schema and config. `internal/site/site.go`, `internal/image/image.go`, `internal/config/config.go`.

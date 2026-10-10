@@ -203,12 +203,17 @@ A change that touches any of these changes its test in the same commit.
   reads, magenta writes, amber is a stream or a warning, green is ok, red is
   an error; each with its word. No colour for decoration. Corners take
   `--radius` or `--radius-sm`; no shadow but the focus ring and the marks of
-  a selected item.
+  a selected item. Every pair of text and ground is held to AA by
+  `web/src/lib/contrast.test.ts`.
+- In a block of code, lightness tells a key or a keyword (`--strong`), a
+  value (`--text`) and punctuation or a comment (`--muted`) apart
+  (`web/src/lib/highlight.ts`). The signal colours are not used for it.
 - Monospace for names, types, values and code; the sans for headings and
   prose. Both fonts are files of the site.
 - One effect: an error status arrives with a 240 ms jolt, once, and not at
   all under `prefers-reduced-motion`. Do not add a second.
-- A shortcut of one key can be turned off (the environment dialog).
+- A shortcut of one key can be turned off (the environment dialog). A chord
+  (⌘K, Ctrl K) is always on: speech input cannot set one off.
 
 ## Style
 

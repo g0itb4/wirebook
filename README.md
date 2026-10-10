@@ -253,14 +253,15 @@ team, commit them as files.
 
 ## Measured
 
-On the development machine (Apple silicon), 2 October 2026. `just size`,
+On the development machine (Apple silicon), 10 October 2026. `just size`,
 `just bench`, `just cover`, `just e2e` and `just snippets` reproduce them.
 
 | What | Result |
 |---|---|
-| Site, gzipped: core.wasm + app.js + app.css + index.html | 296 kB (269 + 22 + 4.5 + 0.5) |
+| Site, gzipped: core.wasm + app.js + app.css + index.html | 301 kB (269 + 26 + 5 + 0.9); 240 kB as brotli |
 | The two fonts (WOFF2, Latin) | 63 kB (40 + 22) |
-| Compile the core and load a 362 kB schema | 30 ms |
+| In the browser, over loopback: shell painted, then every file here, core compiled, page drawn | the shell before the core; `web/e2e/speed.spec.ts` holds it to that, and to no layout shift |
+| Compile the core and load a 362 kB schema | 27 ms |
 | Load and index a schema of 2,000 messages (2.3 MB) | 68 ms |
 | Search that schema | 2 ms |
 | Check a body of 200 messages against the rules of the schema | 2 ms |
@@ -269,11 +270,11 @@ On the development machine (Apple silicon), 2 October 2026. `just size`,
 | Line coverage, Rust core | 100% |
 | Statement coverage, Go | 100%, except `internal/cli` at 99% |
 | Line coverage, page logic (`web/src/lib`) | 100% |
-| Browser tests | 54: every transport with every scheme, CORS, streams, storage, the form, the pickers, variables, the code, and what a hostile page, file or frame cannot do |
+| Browser tests | 61: every transport with every scheme, CORS, streams, storage, the form, the pickers, variables, the code, the look, how the page loads, and what a hostile page, file or frame cannot do |
 | Snippets given to their language's parser (sh, node, python3, go vet) | 160, none refused |
 | Damaged responses fed to the core | 4,000, each answered in words |
 | Known vulnerabilities in dependencies (`just audit`) | none: Go, 35 Rust crates, JavaScript |
-| Accessibility scan (axe, WCAG 2.2 AA) | no violation, at 1440, 1000 and 390 px |
+| Accessibility scan (axe, WCAG 2.2 AA) | no violation, at 1440, 1000 and 390 px; every text and ground pair held to AA by a unit test |
 
 The times are in bun's JavaScript engine, not in a browser.
 

@@ -4,7 +4,7 @@
 //
 //   bun scripts/size-budget.ts
 import { existsSync, readFileSync } from "node:fs";
-import { gzipSync } from "node:zlib";
+import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 
 const DIST = "internal/site/dist";
 
@@ -26,8 +26,9 @@ const BUDGET: Record<string, number> = {
   // Raised once, from 24 000, for the page's uplift: code told apart by
   // lightness (the tokenizer), a copy button on every block, breadcrumbs, a
   // filter on the menu, a start on the home page, a palette for search, a
-  // split that resizes, the frames of a stream. Measured at the end of it.
-  "app.js": 28_000,
+  // split that resizes, the frames of a stream, and the core's file by its
+  // hashed name. Measured: 22 255 before, 25 886 after.
+  "app.js": 26_500,
   // Raised once, from 4 600, for the roomier page: a scale of space, the
   // console's sections (`.card`), the fields of a message as a list, and
   // the joined buttons of a choice. Measured: 4 456 before, 5 135 after.
@@ -35,9 +36,9 @@ const BUDGET: Record<string, number> = {
   // 5 135 before, 3 766 after. Raised once, from 3 900, for the footer
   // (`.foot`): 3 766 before, 3 903 after. Raised again, from 4 000, for the
   // tokens of type and of colour (`--t-*`, `--strong`, `--hover`): 3 903
-  // before, 4 073 after. Raised again for the rest of the page's uplift
-  // (see app.js). Measured at the end of it.
-  "app.css": 6_000,
+  // before, 4 073 after. Raised again, from 4 200, for the rest of the
+  // page's uplift (see app.js): 4 073 before, 5 054 after.
+  "app.css": 5_200,
   // Raised once, from 480, for the preload of the core, the schema, the
   // config and the two fonts, and for the shell the page shows while the
   // core loads. Measured: 452 before, 625 after. Raised again, from 700,
@@ -52,8 +53,14 @@ const FONTS: Record<string, number> = {
   "fonts/space-grotesk.woff2": 23_000,
 };
 
+// Brotli is what a host that precompresses sends (`just deploy`); it is
+// shown beside the gzip size, and not gated: the budget is one number.
+const brotli = (raw: Buffer): number =>
+  brotliCompressSync(raw, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
+
 const failures: string[] = [];
 let total = 0;
+let totalBrotli = 0;
 for (const [file, budget] of Object.entries(BUDGET)) {
   const path = `${DIST}/${file}`;
   if (!existsSync(path)) {
@@ -62,9 +69,13 @@ for (const [file, budget] of Object.entries(BUDGET)) {
   }
   const raw = readFileSync(path);
   const size = gzipSync(raw, { level: 9 }).length;
+  const br = brotli(raw);
   total += size;
+  totalBrotli += br;
   const verdict = size <= budget ? "ok  " : "FAIL";
-  console.log(`${verdict}  ${file.padEnd(11)} ${String(size).padStart(7)} gzip  (${raw.length} raw, budget ${budget})`);
+  console.log(
+    `${verdict}  ${file.padEnd(11)} ${String(size).padStart(7)} gzip ${String(br).padStart(7)} br  (${raw.length} raw, budget ${budget})`,
+  );
   if (size > budget) failures.push(`${file} is ${size} bytes gzipped; the budget is ${budget}`);
 }
 for (const [file, budget] of Object.entries(FONTS)) {
@@ -75,11 +86,12 @@ for (const [file, budget] of Object.entries(FONTS)) {
   }
   const size = readFileSync(path).length;
   total += size;
+  totalBrotli += size;
   const verdict = size <= budget ? "ok  " : "FAIL";
   console.log(`${verdict}  ${file.padEnd(26)} ${String(size).padStart(7)} raw   (budget ${budget})`);
   if (size > budget) failures.push(`${file} is ${size} bytes; the budget is ${budget}`);
 }
-console.log(`      total       ${String(total).padStart(7)} sent`);
+console.log(`      total       ${String(total).padStart(7)} gzip ${String(totalBrotli).padStart(7)} br`);
 
 if (failures.length > 0) {
   console.error(failures.join("\n"));
