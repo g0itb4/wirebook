@@ -55,7 +55,9 @@ _bindgen-version:
 # glue that does not fit the module, and it fails only in the browser.
 #
 # wasm-opt gets the features rustc already uses, and no others, so the module
-# runs wherever the unoptimised one would.
+# runs wherever the unoptimised one would. It also drops the producers
+# section: wasm-bindgen writes its version there, and a CLI built from source
+# writes it with a commit hash, so the same build gave two modules.
 #
 # build the core for the browser: core.wasm and its JavaScript glue
 wasm:
@@ -75,7 +77,7 @@ wasm:
       cargo build --locked -p wirebook-core-wasm --target wasm32-unknown-unknown --release
     rm -rf web/src/gen
     wasm-bindgen --target web --out-dir web/src/gen --out-name core {{ wasm_target }}
-    wasm-opt -Os --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int \
+    wasm-opt -Os --strip-producers --enable-bulk-memory --enable-bulk-memory-opt --enable-nontrapping-float-to-int \
       --enable-sign-ext --enable-mutable-globals --enable-multivalue --enable-reference-types \
       web/src/gen/core_bg.wasm -o web/src/gen/core_bg.wasm
 
