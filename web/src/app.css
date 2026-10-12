@@ -408,7 +408,7 @@ p {
   overflow-wrap: anywhere;
 }
 
-/* The environment, as a chip: the word small, the name in full, the dot. */
+/* The environment, as a chip: the word small, the name in full, its state. */
 .chip {
   gap: var(--s1);
   max-width: 18rem;
@@ -456,19 +456,16 @@ p {
   display: none;
 }
 
-.dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
+.state {
   margin-left: var(--s2);
-  border-radius: 50%;
-  background: var(--ok);
+  color: var(--ok);
+  font-size: var(--t-sm);
+  font-weight: 600;
 }
 
-/* Hollow: a credential is still to be set. */
-.dot.unset {
-  background: none;
-  border: 1px solid var(--stream);
+/* A credential is still to be set. */
+.state.unset {
+  color: var(--stream);
 }
 
 .layout {

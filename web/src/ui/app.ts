@@ -232,9 +232,8 @@ export function mount(root: HTMLElement, context: Context): void {
       environmentButton,
       h("span", { class: "chip-label" }, "Environment: "),
       h("strong", null, environment.name),
-      // Filled: ready to send. Hollow: a credential is still to be set.
-      h("span", { class: unset ? "dot unset" : "dot", "aria-hidden": "true" }),
-      unset && h("span", { class: "visually-hidden" }, ", no credential yet"),
+      // Ready to send, or a credential is still to be set: in words.
+      h("span", { class: unset ? "state unset" : "state" }, unset ? "No credential" : "OK"),
     );
     keyHint.hidden = !context.shortcuts;
   };

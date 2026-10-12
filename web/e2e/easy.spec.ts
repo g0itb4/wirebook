@@ -457,8 +457,9 @@ test.describe("the look", () => {
   test("the environment says when it has no credential yet", async ({ page }) => {
     await open(page);
     const chip = page.getByRole("button", { name: /^Environment:/ });
-    await expect(chip).toContainText("no credential yet");
+    await expect(chip).toContainText("No credential");
     await configure(page, PROXY, CREDENTIALS.bearer!);
-    await expect(chip).not.toContainText("no credential yet");
+    await expect(chip).not.toContainText("No credential");
+    await expect(chip).toContainText("OK");
   });
 });
