@@ -118,10 +118,6 @@
           # The page carries its own Content-Security-Policy in a meta tag, with
           # connect-src * for the API it calls; the header here only adds what a
           # meta tag cannot, frame-ancestors.
-          www.{{ wirebook_domain }} {
-          	redir https://{{ wirebook_domain }}{uri} permanent
-          }
-
           {{ wirebook_domain }} {
           	root * {{ wirebook_root }}/current
 
@@ -135,6 +131,7 @@
           		Cross-Origin-Opener-Policy "same-origin"
           		Cross-Origin-Resource-Policy "same-origin"
           		-Server
+          		-Via
           	}
 
           	# The build's files carry a hash of their bytes in their name: a
@@ -154,6 +151,13 @@
           	}
           }
       notify: Reload caddy
+
+    # Checked in the whole config, not alone: a duplicate host or a stray
+    # catch-all in any repo's file would otherwise fail only at reload, and
+    # block every other site's reloads too.
+    - name: The merged Caddy config is valid
+      ansible.builtin.command: caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+      changed_when: false
 
     - name: Flush handlers
       ansible.builtin.meta: flush_handlers
