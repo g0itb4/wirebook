@@ -110,7 +110,8 @@
       ansible.builtin.copy:
         dest: /etc/caddy/sites/wirebook.caddy
         mode: "0644"
-        validate: caddy validate --adapter caddyfile --config %s
+        # Checked in the whole config below, not alone: it imports the
+        # access_log snippet that doe-lab's Caddyfile defines.
         content: |
           # wirebook.pigface.lol: the Eliza example, static files from the release
           # that /srv/wirebook/current names. Written by wirebook's playbook.
@@ -119,6 +120,7 @@
           # connect-src * for the API it calls; the header here only adds what a
           # meta tag cannot, frame-ancestors.
           {{ wirebook_domain }} {
+          	import access_log
           	root * {{ wirebook_root }}/current
 
           	header {
